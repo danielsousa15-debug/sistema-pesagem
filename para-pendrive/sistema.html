@@ -1,0 +1,2352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Dex Balance — Pesagem de Mussarela</title>
+<style>
+  /* ===================== TEMA (cozinha, luz forte) ===================== */
+  :root{
+    --bg:#15181c;            /* fundo escuro */
+    --bg2:#1f242b;           /* cartoes */
+    --bg3:#2a313a;           /* botoes neutros */
+    --primary:#1565d8;       /* azul DEX (cor da marca) */
+    --primary-d:#0f4aa8;     /* azul escuro (botao pressionado) */
+    --txt:#ffffff;
+    --muted:#9aa6b2;
+    --ok:#27ae60;            /* verde — peso ideal */
+    --near:#f1c40f;          /* amarelo — quase la */
+    --over:#e74c3c;          /* vermelho — excedido */
+    --under:#3b4654;         /* neutro — adicionando */
+    --radius:16px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:'Segoe UI',system-ui,Arial,sans-serif;
+    height:100dvh; width:100vw; overflow:hidden;
+    display:flex; flex-direction:column;
+    user-select:none; touch-action:manipulation;
+  }
+
+  /* ===================== BARRA SUPERIOR ===================== */
+  #topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; background:var(--bg2);
+    border-bottom:2px solid #000; flex:0 0 auto; gap:10px;
+  }
+  /* Logo Dex Balance (aparece em todas as telas) */
+  #logo{display:flex; align-items:center; gap:9px; flex:0 0 auto;}
+  .logo-mark{width:34px; height:34px; border-radius:9px; background:var(--primary);
+    display:flex; align-items:center; justify-content:center; color:#fff; flex:0 0 auto;
+    box-shadow:0 2px 6px rgba(0,0,0,.4);}
+  .logo-mark svg{width:22px; height:22px; display:block;}
+  .logo-word{font-size:clamp(15px,2.6vw,21px); font-weight:600; color:#fff;
+    white-space:nowrap; line-height:1; letter-spacing:.3px;}
+  .logo-word b{font-weight:900;}
+  #crumb{flex:1 1 auto; min-width:0; text-align:center;
+         font-size:clamp(12px,2.2vw,17px); color:var(--muted); font-weight:600;
+         white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #crumb b{color:var(--txt);}
+  @media (max-width:560px){ .logo-word{display:none;} }  /* tela bem estreita: so o icone */
+  .badge{
+    display:inline-flex; align-items:center; gap:7px;
+    padding:8px 14px; border-radius:999px; font-weight:700;
+    font-size:clamp(12px,2.2vw,16px); white-space:nowrap; flex:0 0 auto;
+  }
+  .badge.on{background:rgba(39,174,96,.18); color:var(--ok); border:1px solid var(--ok);}
+  .badge.off{background:rgba(231,76,60,.18); color:var(--over); border:1px solid var(--over);}
+  .badge.warn{background:rgba(241,196,15,.16); color:var(--near); border:1px solid var(--near);}
+
+
+  /* ===================== AREA PRINCIPAL ===================== */
+  #app{flex:1 1 auto; position:relative; overflow:hidden;}
+  .screen{
+    position:absolute; inset:0; display:none;
+    flex-direction:column; padding:16px; gap:14px;
+  }
+  .screen.active{display:flex;}
+  .titulo-passo{font-size:clamp(16px,3vw,24px); font-weight:800; text-align:center; color:var(--muted);}
+  .titulo-passo span{color:var(--primary);}
+
+  /* Botoes grandes (min 60px, uso com luvas) */
+  .btn{
+    min-height:64px; border:none; border-radius:var(--radius);
+    color:var(--txt); font-weight:800; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4px; line-height:1.1; transition:transform .05s, filter .1s;
+  }
+  .btn:active{transform:scale(.97); filter:brightness(1.12);}
+  .btn.primary{background:var(--primary);}
+  .btn.neutral{background:var(--bg3);}
+  .btn.ghost{background:transparent; border:2px solid var(--bg3); color:var(--muted);}
+  .btn[disabled]{opacity:.4; pointer-events:none;}
+  .btn .sub{font-size:.62em; font-weight:600; color:rgba(255,255,255,.8);}
+  .btn .gram{font-size:1.5em; color:#ffe08a;}
+
+  /* Passo 1 — categorias */
+  #grid-categoria{flex:1; display:grid; grid-template-columns:1fr; grid-auto-rows:1fr; gap:14px;}
+  #grid-categoria .btn{font-size:clamp(26px,6vw,44px);}
+
+  /* Passo 2 — grupo de pizza (MAIS PEDIDAS / CLASSICAS / ESPECIAIS) */
+  #grid-grupo{flex:1; display:grid; grid-template-columns:1fr; grid-auto-rows:1fr; gap:14px;}
+  #grid-grupo .btn{font-size:clamp(22px,5vw,38px);}
+
+  /* Passo 3 — sabores em botoes lado a lado (na ordem do cardapio) */
+  #grid-sabor{flex:1; display:grid; gap:10px; align-content:center;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+  #grid-sabor .btn{padding:8px 6px; font-size:clamp(13px,2.1vw,18px); min-height:62px;
+    text-align:center; line-height:1.15;}
+
+  /* Passo 4 — tamanhos (grid pizza) */
+  #grid-tamanho{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:4px;}
+  /* Grid de tamanhos — colunas = tamanho, linhas = massa */
+  .tam-grid{display:grid;gap:0;border-radius:14px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.1);width:100%;}
+  .tam-grid-row{display:grid;grid-template-columns:100px repeat(4,1fr);}
+  .tam-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:10px 6px;gap:3px;min-height:64px;border:1px solid rgba(255,255,255,.07);}
+  .tam-cell-corner{background:transparent;}
+  .tam-col-header{background:rgba(255,255,255,.07);font-size:clamp(13px,2vw,16px);
+    font-weight:800;color:var(--text);text-align:center;gap:2px;}
+  .tam-col-header b{font-size:clamp(14px,2.2vw,18px);}
+  .tam-col-header span{font-size:11px;color:var(--muted);font-weight:600;}
+  .tam-row-header{background:rgba(255,255,255,.05);font-size:clamp(12px,1.8vw,14px);
+    font-weight:700;color:var(--muted);text-align:center;}
+  .tam-cell-empty{background:transparent;color:var(--muted);font-size:18px;opacity:.25;}
+  .tam-cell-active{background:rgba(21,101,216,.15);cursor:pointer;transition:background .15s;}
+  .tam-cell-active:active{background:rgba(21,101,216,.45);}
+  .tam-gram{font-size:clamp(28px,5.5vw,42px);font-weight:900;color:var(--primary);line-height:1;}
+  .tam-g{font-size:.45em;color:var(--muted);font-weight:700;}
+  .tam-gram-frang{font-size:clamp(12px,2vw,15px);color:var(--near);font-weight:700;}
+  /* Cores por variante de tamanho */
+  .tc-amarelo  {--cc:#f5c842;background:rgba(245,200,66,.13);}
+  .tc-vermelho {--cc:#e53935;background:rgba(229,57,53,.13);}
+  .tc-azul     {--cc:#1e88e5;background:rgba(30,136,229,.16);}
+  .tc-roxo     {--cc:#9c27b0;background:rgba(156,39,176,.15);}
+  .tc-branco   {--cc:#eeeeee;background:rgba(238,238,238,.10);}
+  .tc-verde    {--cc:#43a047;background:rgba(67,160,71,.13);}
+  .tc-rosa     {--cc:#e91e63;background:rgba(233,30,99,.13);}
+  [class*="tc-"]{border-top:3px solid var(--cc);}
+  [class*="tc-"] .tam-gram{color:var(--cc);}
+  [class*="tc-"] .tam-gram-frang{color:var(--cc);}
+  [class*="tc-"]:active{filter:brightness(1.35);}
+  /* Fallback para categorias sem grid (calzone, cheesebread) */
+  #grid-tamanho .btn{padding:10px;font-size:clamp(15px,2.4vw,20px);}
+  .gram-multi{font-size:clamp(18px,3.5vw,28px);font-weight:900;color:var(--primary);display:block;margin-top:2px;}
+
+  .rodape{display:flex; gap:12px; flex:0 0 auto;}
+  .rodape .btn{flex:1; min-height:60px; font-size:clamp(16px,3vw,22px);}
+
+  /* ===================== Passo 4 — PESAGEM ===================== */
+  #s-pesagem{padding:12px 16px; gap:8px;}
+  #pesoProduto{font-size:clamp(18px,3.6vw,28px); font-weight:800; text-align:center;}
+  #pesoProduto small{display:block; color:var(--muted); font-weight:600; font-size:.6em;}
+  #ingredienteAtual{text-align:center; font-weight:900; letter-spacing:.5px;
+    font-size:clamp(15px,2.8vw,22px); color:#ffe08a;}
+  .btn.proximo{background:var(--ok);}
+  .gram-multi{font-size:.62em; color:#ffe08a; font-weight:800; line-height:1.2;}
+  #metaWrap{text-align:center; color:var(--muted); font-weight:700; font-size:clamp(14px,2.6vw,20px);}
+  #metaWrap b{color:#ffe08a; font-size:1.5em;}
+
+  #peso{
+    font-size:clamp(72px,18vw,140px); font-weight:900; line-height:1;
+    text-align:center; letter-spacing:-2px; transition:color .12s;
+    font-variant-numeric:tabular-nums;
+  }
+  #peso .un{font-size:.3em; color:var(--muted); font-weight:700; letter-spacing:0;}
+  #statusTxt{text-align:center; font-size:clamp(18px,4vw,30px); font-weight:800; min-height:1.2em;}
+
+  /* Barra de progresso 0 -> alvo+20% */
+  #barraWrap{position:relative; height:clamp(34px,7vh,52px); background:var(--bg3);
+    border-radius:999px; overflow:hidden; margin:2px 0;}
+  #barra{height:100%; width:0%; border-radius:999px; transition:width .12s, background .12s;}
+  #marcaAlvo{position:absolute; top:-4px; bottom:-4px; width:4px; background:#fff;
+    left:83.333%; border-radius:2px; box-shadow:0 0 0 2px rgba(0,0,0,.5);}
+  #marcaAlvo::after{content:'ALVO'; position:absolute; top:-16px; left:50%; transform:translateX(-50%);
+    font-size:10px; font-weight:800; color:#fff;}
+
+  /* Estados de cor */
+  .st-under #peso{color:#c7d2dd;} .st-under #barra{background:var(--under);} .st-under #statusTxt{color:#c7d2dd;}
+  .st-near  #peso{color:var(--near);} .st-near #barra{background:var(--near);} .st-near #statusTxt{color:var(--near);}
+  .st-ok    #peso{color:var(--ok);} .st-ok #barra{background:var(--ok);} .st-ok #statusTxt{color:var(--ok);}
+  .st-over  #peso{color:#fff;} .st-over #barra{background:var(--over);} .st-over #statusTxt{color:#fff;}
+  /* Estabilizando (balanca em movimento): peso piscando + aviso para aguardar */
+  .st-settling #peso{color:#8fa3b5; animation:pulsar 1.1s ease-in-out infinite;}
+  .st-settling #barra{background:var(--under);}
+  .st-settling #statusTxt{color:#bcd2e6;}
+  @keyframes pulsar{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+  /* Fundo pisca quando excedido */
+  @keyframes piscaFundo{0%,100%{background:var(--bg);}50%{background:var(--over);}}
+  body.excedido{animation:piscaFundo .5s steps(1) infinite;}
+
+  #taraInfo{font-size:.7em; color:var(--ok); font-weight:700;}
+  #toast{
+    position:fixed; left:50%; top:64px; transform:translateX(-50%) translateY(-20px);
+    background:var(--ok); color:#fff; font-weight:800; font-size:clamp(14px,2.6vw,20px);
+    padding:12px 22px; border-radius:999px; box-shadow:0 6px 24px rgba(0,0,0,.55);
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50;
+    max-width:92vw; text-align:center;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ===================== Botoes de icone (📊 e ⚙️) e DASHBOARD ===================== */
+  .icon-btn{flex:0 0 auto; width:42px; height:42px; border-radius:10px; background:var(--bg3);
+    border:none; color:var(--txt); font-size:20px; cursor:pointer; display:flex;
+    align-items:center; justify-content:center;}
+  .icon-btn:active{filter:brightness(1.25);}
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:100;
+    display:none; padding:10px;}
+  .overlay.show{display:flex; align-items:stretch; justify-content:center;}
+  .dash-box{background:var(--bg2); border-radius:16px; width:100%; max-width:1100px;
+    display:flex; flex-direction:column; overflow:hidden;}
+  .dash-head{display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; background:var(--bg3); flex:0 0 auto; gap:10px;}
+  .dash-title{font-weight:800; font-size:clamp(15px,2.8vw,21px); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;}
+  .dash-tabs{display:flex; gap:4px; padding:8px 10px 0; background:var(--bg3); flex:0 0 auto;}
+  .dash-tab{flex:1; min-height:46px; border:none; border-radius:10px 10px 0 0; background:var(--bg2);
+    color:var(--muted); font-weight:700; font-size:clamp(12px,2.3vw,16px); cursor:pointer;}
+  .dash-tab.active{background:var(--bg); color:var(--txt);}
+  .dash-body{flex:1; overflow-y:auto; padding:14px; background:var(--bg);}
+  .dash-tabc{display:none;} .dash-tabc.active{display:block;}
+  .dash-actions{display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;}
+  .dash-actions .btn{min-height:44px; font-size:14px; padding:0 14px; flex:0 0 auto;}
+  .dash-tabela{overflow-x:auto;}
+  table.dash{width:100%; border-collapse:collapse; font-size:clamp(12px,2.1vw,15px);}
+  table.dash th, table.dash td{padding:8px 10px; text-align:left; border-bottom:1px solid var(--bg3); white-space:nowrap;}
+  table.dash th{color:var(--muted); font-weight:700; position:sticky; top:0; background:var(--bg);}
+  table.dash td.num{text-align:right; font-variant-numeric:tabular-nums;}
+  .pill{padding:3px 10px; border-radius:999px; font-weight:800; font-size:.85em; display:inline-block;}
+  .pill.OK{background:rgba(39,174,96,.18); color:var(--ok);}
+  .pill.ABAIXO{background:rgba(241,196,15,.18); color:var(--near);}
+  .pill.ACIMA{background:rgba(231,76,60,.18); color:var(--over);}
+  .dash-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px;}
+  .dash-card{background:var(--bg2); border-radius:12px; padding:12px 14px;}
+  .dash-card .v{font-size:clamp(20px,4vw,28px); font-weight:900; line-height:1.1;}
+  .dash-card .l{font-size:12px; color:var(--muted); font-weight:600; margin-top:2px;}
+  .dash-chart-wrap{background:var(--bg2); border-radius:12px; padding:12px;}
+  .dash-chart-wrap h4{font-size:13px; color:var(--muted); font-weight:700; margin-bottom:8px;}
+  #chartHoras{width:100%; height:200px; display:block;}
+  .dash-filtros{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center;}
+  .dash-filtros select, .dash-filtros input{min-height:42px; background:var(--bg2); color:var(--txt);
+    border:1px solid var(--bg3); border-radius:8px; padding:0 8px; font-size:14px;}
+  .dash-rodape{margin-top:10px; color:var(--muted); font-weight:700; font-size:14px;}
+  .dash-pag{display:flex; gap:10px; align-items:center; justify-content:center; margin-top:12px;}
+  .dash-pag button{min-height:42px; padding:0 16px; border-radius:8px; border:none;
+    background:var(--bg3); color:var(--txt); font-weight:700; cursor:pointer;}
+  .dash-pag button[disabled]{opacity:.4;}
+  .dash-msg{text-align:center; color:var(--muted); padding:28px 12px;}
+
+  @media (max-width:600px){
+    #grid-tamanho{grid-template-columns:1fr 1fr;}
+  }
+
+  /* ===================== MÓDULO DE TREINAMENTO — Estágio 4 ===================== */
+  /* Tema treino: fundo azul escuro em todas as telas enquanto ativo */
+  body.treino-ativo{--bg:#1a2f4a;--bg2:#1f3a5c;--bg3:#264a72;}
+  /* Badge de treino (entre o header e o app) */
+  #treinoBadge{display:none;background:#1e50a0;color:#fff;text-align:center;
+    padding:7px 12px;font-weight:800;font-size:clamp(13px,2.4vw,16px);flex:0 0 auto;
+    letter-spacing:.3px;}
+  #treinoBadge.show{display:block;}
+  /* Tela de pesagem de treino (espelha a de produção, IDs com prefixo t-) */
+  #s-treino-pesagem{padding:12px 16px;gap:8px;}
+  #t-prodTxt{font-size:clamp(18px,3.6vw,28px);font-weight:800;text-align:center;}
+  #t-prodTxt small{display:block;color:var(--muted);font-weight:600;font-size:.6em;}
+  #t-metaWrap{text-align:center;color:var(--muted);font-weight:700;font-size:clamp(14px,2.6vw,20px);}
+  #t-metaWrap b{color:#ffe08a;font-size:1.5em;}
+  #t-taraInfo{font-size:.7em;color:var(--ok);font-weight:700;}
+  #t-barraWrap{position:relative;height:clamp(34px,7vh,52px);background:var(--bg3);
+    border-radius:999px;overflow:hidden;margin:2px 0;}
+  #t-barra{height:100%;width:0%;border-radius:999px;transition:width .12s,background .12s;}
+  #t-marcaAlvo{position:absolute;top:-4px;bottom:-4px;width:4px;background:#fff;
+    left:83.333%;border-radius:2px;box-shadow:0 0 0 2px rgba(0,0,0,.5);}
+  #t-marcaAlvo::after{content:'ALVO';position:absolute;top:-16px;left:50%;
+    transform:translateX(-50%);font-size:10px;font-weight:800;color:#fff;}
+  #t-peso{font-size:clamp(72px,18vw,140px);font-weight:900;line-height:1;
+    text-align:center;letter-spacing:-2px;transition:color .12s;
+    font-variant-numeric:tabular-nums;}
+  #t-peso .un{font-size:.3em;color:var(--muted);font-weight:700;letter-spacing:0;}
+  #t-statusTxt{text-align:center;font-size:clamp(18px,4vw,30px);font-weight:800;min-height:1.2em;}
+  /* Estados de cor da tela de treino */
+  .st-under #t-peso{color:#c7d2dd;} .st-under #t-barra{background:var(--under);} .st-under #t-statusTxt{color:#c7d2dd;}
+  .st-near  #t-peso{color:var(--near);} .st-near #t-barra{background:var(--near);} .st-near #t-statusTxt{color:var(--near);}
+  .st-ok    #t-peso{color:var(--ok);}  .st-ok #t-barra{background:var(--ok);}  .st-ok #t-statusTxt{color:var(--ok);}
+  .st-over  #t-peso{color:#fff;}       .st-over #t-barra{background:var(--over);} .st-over #t-statusTxt{color:#fff;}
+  .st-settling #t-peso{color:#8fa3b5;animation:pulsar 1.1s ease-in-out infinite;}
+  .st-settling #t-barra{background:var(--under);}
+  .st-settling #t-statusTxt{color:#bcd2e6;}
+  /* Placar durante o treino */
+  #t-placar{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;
+    padding:6px 12px;background:rgba(0,0,0,.25);border-radius:10px;
+    font-size:clamp(12px,2.1vw,15px);font-weight:700;flex:0 0 auto;}
+  #t-placar .pm{color:var(--muted);font-size:.85em;font-weight:600;}
+  #btnVerDesemp{min-height:34px;padding:0 12px;border-radius:8px;border:none;
+    background:var(--bg3);color:var(--txt);font-weight:700;font-size:13px;cursor:pointer;}
+  #btnVerDesemp:active{filter:brightness(1.25);}
+  /* Overlay de resultado — position:fixed para funcionar sobre qualquer tela */
+  #t-resultado{position:fixed;inset:0;background:rgba(0,0,0,.82);
+    display:none;align-items:center;justify-content:center;z-index:200;padding:16px;}
+  #t-resultado.show{display:flex;}
+  /* HUD de treino: barra fixa no topo durante a pesagem em modo treino */
+  #treino-hud{display:none;position:fixed;top:54px;left:0;right:0;z-index:50;
+    background:rgba(21,101,216,.92);padding:6px 14px;
+    font-size:12px;font-weight:700;color:#e8f0ff;
+    flex-wrap:wrap;align-items:center;gap:8px;}
+  #treino-hud.show{display:flex;}
+  #treino-hud .th-sep{opacity:.4;}
+  #treino-hud .th-btns{margin-left:auto;display:flex;gap:6px;}
+  #treino-hud button{font-size:11px;padding:3px 10px;border-radius:8px;
+    border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);
+    color:#fff;cursor:pointer;}
+  #treino-hud button:active{background:rgba(255,255,255,.25);}
+  .t-res-box{background:var(--bg2);border-radius:18px;padding:22px 24px;
+    max-width:400px;width:100%;display:flex;flex-direction:column;gap:14px;
+    box-shadow:0 12px 40px rgba(0,0,0,.7);}
+  .t-res-titulo{font-size:clamp(32px,7vw,48px);text-align:center;line-height:1;}
+  .t-res-linha{display:flex;justify-content:space-between;align-items:center;
+    font-size:clamp(15px,2.8vw,20px);font-weight:700;
+    border-bottom:1px solid var(--bg3);padding-bottom:8px;}
+  .t-res-linha:last-of-type{border-bottom:none;}
+  .t-res-msg{text-align:center;font-size:clamp(15px,2.8vw,20px);
+    font-weight:800;padding:4px 0;}
+  .t-res-btns{display:flex;flex-direction:column;gap:10px;}
+  .t-res-btns .btn{min-height:58px;font-size:clamp(16px,3vw,20px);}
+  /* Modais de desempenho e resumo final */
+  .treino-modal-box{background:var(--bg2);border-radius:16px;width:100%;max-width:700px;
+    margin:auto;display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 12px 48px rgba(0,0,0,.7);max-height:calc(100dvh - 20px);}
+  .treino-modal-head{background:#1e50a0;padding:12px 16px;font-weight:800;
+    font-size:clamp(14px,2.5vw,18px);display:flex;align-items:center;
+    justify-content:space-between;flex:0 0 auto;color:#fff;}
+  .treino-modal-body{flex:1;overflow-y:auto;padding:14px;}
+  .treino-modal-rodape{padding:12px 16px;display:flex;gap:10px;
+    flex:0 0 auto;background:var(--bg3);}
+  .treino-modal-rodape .btn{flex:1;min-height:54px;font-size:clamp(14px,2.6vw,17px);}
+  /* Cards do resumo final */
+  .t-resumo-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:10px;margin-bottom:16px;}
+  .t-resumo-card{background:var(--bg3);border-radius:12px;padding:12px 14px;}
+  .t-resumo-card .v{font-size:clamp(20px,4vw,28px);font-weight:900;line-height:1.1;}
+  .t-resumo-card .l{font-size:12px;color:var(--muted);font-weight:600;margin-top:3px;}
+  .t-tent-pill{position:absolute;bottom:8px;right:12px;font-size:11px;
+    color:var(--muted);pointer-events:none;}
+
+  /* ===================== PAINEL DE CONFIGURAÇÃO — Estágio 3 ===================== */
+  /* Modal de PIN */
+  .pin-box{background:var(--bg2);border-radius:20px;width:100%;max-width:360px;
+    margin:auto;display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 12px 48px rgba(0,0,0,.7);}
+  .pin-head{background:var(--bg3);padding:14px 18px;font-weight:800;
+    font-size:clamp(14px,2.4vw,17px);display:flex;align-items:center;
+    justify-content:space-between;gap:8px;}
+  .pin-body{padding:24px 20px 20px;display:flex;flex-direction:column;
+    align-items:center;gap:18px;}
+  .pin-dots{display:flex;gap:18px;}
+  .pin-dot{width:24px;height:24px;border-radius:50%;border:2.5px solid var(--muted);
+    background:transparent;transition:all .15s;}
+  .pin-dot.filled{background:var(--primary);border-color:var(--primary);
+    box-shadow:0 0 8px rgba(21,101,216,.5);}
+  .pin-msg{font-size:14px;font-weight:700;color:var(--over);min-height:20px;
+    text-align:center;width:100%;}
+  .pin-lockout-txt{font-size:13px;color:var(--near);font-weight:700;text-align:center;}
+  .pin-teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+    width:100%;max-width:280px;}
+  .pin-tecla{min-height:72px;border:none;border-radius:14px;background:var(--bg3);
+    color:var(--txt);font-size:clamp(22px,5vw,30px);font-weight:800;cursor:pointer;
+    transition:filter .08s,transform .05s;}
+  .pin-tecla:active{filter:brightness(1.3);transform:scale(.97);}
+  .pin-tecla.cancel{font-size:15px;color:var(--muted);}
+  .pin-tecla.del{font-size:20px;}
+  .pin-tecla[disabled]{opacity:.25;pointer-events:none;}
+  /* Config panel */
+  .cfg-box{background:var(--bg2);border-radius:16px;width:100%;max-width:680px;
+    margin:auto;display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 12px 48px rgba(0,0,0,.7);max-height:calc(100dvh - 20px);}
+  .cfg-head{background:var(--primary);padding:12px 16px;font-weight:800;
+    font-size:clamp(14px,2.5vw,18px);display:flex;align-items:center;
+    justify-content:space-between;flex:0 0 auto;}
+  .cfg-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;}
+  .cfg-sec{background:var(--bg3);border-radius:12px;padding:14px;
+    display:flex;flex-direction:column;gap:10px;}
+  .cfg-sec-titulo{font-weight:800;font-size:clamp(12px,2.2vw,14px);color:var(--muted);
+    letter-spacing:.6px;text-transform:uppercase;}
+  .cfg-campo{display:flex;flex-direction:column;gap:5px;}
+  .cfg-campo label{font-size:13px;font-weight:700;color:var(--muted);}
+  .cfg-campo input,.cfg-campo select{min-height:48px;background:var(--bg2);color:var(--txt);
+    border:1.5px solid var(--bg);border-radius:8px;padding:0 12px;font-size:15px;width:100%;}
+  .cfg-campo input:focus,.cfg-campo select:focus{outline:none;border-color:var(--primary);}
+  .cfg-aviso{background:rgba(241,196,15,.1);border:1px solid var(--near);
+    border-radius:8px;padding:10px 12px;font-size:13px;color:var(--near);font-weight:700;}
+  .cfg-aviso-ok{background:rgba(39,174,96,.1);border:1px solid var(--ok);
+    border-radius:8px;padding:10px 12px;font-size:13px;color:var(--ok);font-weight:700;}
+  .cfg-aviso-err{background:rgba(231,76,60,.1);border:1px solid var(--over);
+    border-radius:8px;padding:10px 12px;font-size:13px;color:var(--over);font-weight:700;}
+  .cfg-rodape{padding:12px 16px;display:flex;gap:10px;flex:0 0 auto;background:var(--bg3);}
+  .cfg-rodape .btn{flex:1;min-height:54px;font-size:clamp(14px,2.6vw,17px);}
+  /* Mini-PIN (troca de PIN dentro do painel) */
+  .pin-mini-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .pin-mini-dots{display:flex;gap:10px;cursor:pointer;padding:10px;
+    background:var(--bg2);border-radius:10px;border:1.5px solid var(--bg);}
+  .pin-mini-dot{width:16px;height:16px;border-radius:50%;
+    border:2px solid var(--muted);background:transparent;transition:all .1s;}
+  .pin-mini-dot.filled{background:var(--primary);border-color:var(--primary);}
+  .pin-mini-teclado{display:none;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .pin-mini-teclado.show{display:grid;}
+  .pin-mini-tecla{min-height:54px;border:none;border-radius:10px;
+    background:var(--bg2);color:var(--txt);font-size:20px;font-weight:800;cursor:pointer;
+    transition:filter .08s;}
+  .pin-mini-tecla:active{filter:brightness(1.3);}
+</style>
+</head>
+<body>
+  <!-- Barra superior: logo Dex Balance + trilha de navegacao + badge de conexao -->
+  <header id="topbar">
+    <div id="logo">
+      <span class="logo-mark">
+        <svg viewBox="0 0 64 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="currentColor">
+            <circle cx="32" cy="9" r="4"/>
+            <rect x="30" y="11" width="4" height="36" rx="2"/>
+            <rect x="19" y="49" width="26" height="5" rx="2.5"/>
+            <rect x="9" y="14" width="46" height="4" rx="2"/>
+            <path d="M3 30 a9 5.5 0 0 0 18 0Z"/>
+            <path d="M43 30 a9 5.5 0 0 0 18 0Z"/>
+          </g>
+          <g stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round">
+            <path d="M12 16 L6 30 M12 16 L18 30"/>
+            <path d="M52 16 L46 30 M52 16 L58 30"/>
+          </g>
+        </svg>
+      </span>
+      <span class="logo-word"><b>Dex</b> Balance</span>
+    </div>
+    <button class="icon-btn" id="btnConfig" aria-label="Configurações" title="Configurações (PIN)">⚙️</button>
+    <div id="crumb">Selecione o produto</div>
+    <button class="icon-btn" id="btnTreino" aria-label="Modo Treinamento" title="Modo Treinamento">🎓</button>
+    <button class="icon-btn" id="btnDashboard" aria-label="Relatórios" title="Relatórios">📊</button>
+    <div id="badge" class="badge off">⚠ Desconectada</div>
+  </header>
+  <div id="treinoBadge">🎓 MODO TREINO — <span id="treinoNomeBadge"></span></div>
+
+  <!-- HUD fixo de treino — aparece sobre #s-pesagem durante o modo treino -->
+  <div id="treino-hud">
+    <span>✅ <span id="t-placarAcertos">0</span> acertos</span>
+    <span class="th-sep">|</span>
+    <span>⚠️ <span id="t-placarQuase">0</span> quase</span>
+    <span class="th-sep">|</span>
+    <span>❌ <span id="t-placarErros">0</span> erros</span>
+    <span class="th-sep">|</span>
+    <span id="t-placarPrec" style="color:#7dffb3">—</span>
+    <span class="th-sep">·</span>
+    <span>T.<span id="t-tentNum">1</span></span>
+    <div class="th-btns">
+      <button id="btnVerDesemp">📊 Desempenho</button>
+      <button id="btnTreinoEncerrar">🔒 Encerrar</button>
+    </div>
+  </div>
+
+  <!-- Overlay de resultado de treino — position:fixed, aparece sobre qualquer tela -->
+  <div id="t-resultado">
+    <div class="t-res-box">
+      <div class="t-res-titulo" id="t-res-icon">—</div>
+      <div class="t-res-linha"><span>Alvo</span><span class="v" id="t-res-alvo">—</span></div>
+      <div class="t-res-linha"><span>Você pesou</span><span class="v" id="t-res-real">—</span></div>
+      <div class="t-res-linha"><span>Diferença</span><span class="v" id="t-res-dif">—</span></div>
+      <div class="t-res-msg" id="t-res-msg"></div>
+      <div class="t-res-btns">
+        <button class="btn primary" id="btnTentarNov">↺ Tentar novamente</button>
+        <button class="btn neutral" id="btnTrocarTreino2">◀ Trocar produto</button>
+      </div>
+    </div>
+  </div>
+
+  <main id="app">
+    <!-- PASSO 1 — Categoria -->
+    <section id="s-categoria" class="screen active">
+      <div class="titulo-passo">Passo 1 — <span>Escolha o produto</span></div>
+      <div id="grid-categoria"></div>
+    </section>
+
+    <!-- PASSO 2 — Grupo de pizza (so para PIZZAS) -->
+    <section id="s-grupo" class="screen">
+      <div class="titulo-passo">Passo 2 — <span>Escolha o grupo</span></div>
+      <div id="grid-grupo"></div>
+      <div class="rodape">
+        <button class="btn ghost" data-voltar="s-categoria">◀ Voltar</button>
+      </div>
+    </section>
+
+    <!-- PASSO 3 — Sabor (botoes na ordem do cardapio) -->
+    <section id="s-sabor" class="screen">
+      <div class="titulo-passo">Passo 3 — <span>Escolha o sabor</span></div>
+      <div id="grid-sabor"></div>
+      <div class="rodape">
+        <button class="btn ghost" id="btnVoltarSabor">◀ Voltar</button>
+      </div>
+    </section>
+
+    <!-- PASSO 4 — Tamanho -->
+    <section id="s-tamanho" class="screen">
+      <div class="titulo-passo">Passo 4 — <span>Escolha o tamanho</span></div>
+      <div id="grid-tamanho"></div>
+      <div class="rodape">
+        <button class="btn ghost" data-voltar="s-sabor">◀ Voltar</button>
+      </div>
+    </section>
+
+    <!-- PASSO 4 — Pesagem -->
+    <section id="s-pesagem" class="screen st-under">
+      <div id="pesoProduto">Produto<small>massa</small></div>
+      <div id="ingredienteAtual">Pesando: MUSSARELA</div>
+      <div id="metaWrap">Meta: <b id="metaTxt">0 g</b> <span id="taraInfo"></span></div>
+      <div id="barraWrap">
+        <div id="barra"></div>
+        <div id="marcaAlvo"></div>
+      </div>
+      <div id="peso">0<span class="un"> g</span></div>
+      <div id="statusTxt">Coloque a mussarela</div>
+      <div class="rodape">
+        <button class="btn primary" data-voltar="s-tamanho">◀ Trocar produto</button>
+        <button class="btn neutral" id="btnZerar">⚖️ Zerar (tara)</button>
+        <button class="btn proximo" id="btnProximo" style="display:none">Próximo ▶</button>
+      </div>
+    </section>
+    <div id="toast"></div>
+
+    <!-- TREINO — Tela de identificação do operador -->
+    <section id="s-treino-id" class="screen">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px;">
+        <div style="font-size:clamp(40px,10vw,72px);line-height:1">🎓</div>
+        <div style="font-size:clamp(22px,5vw,36px);font-weight:800;text-align:center">Modo Treinamento</div>
+        <div style="font-size:clamp(14px,2.6vw,20px);color:var(--muted);text-align:center">Digite seu nome para começar</div>
+        <input type="text" id="treinoNomeInput" placeholder="Seu nome"
+          style="min-height:58px;font-size:20px;text-align:center;border-radius:12px;
+                 border:2px solid var(--primary);background:var(--bg2);color:var(--txt);
+                 padding:0 16px;width:100%;max-width:420px;outline:none;">
+        <button class="btn primary" id="btnIniciarTreino"
+          style="font-size:clamp(18px,3.6vw,24px);min-height:68px;width:100%;max-width:420px">
+          Iniciar Treino ▶
+        </button>
+        <div class="cfg-aviso" style="max-width:420px;text-align:center;font-size:14px">
+          ⚠️ Este modo não registra pesagens reais. Use massa sem molho e reutilize a mussarela.
+        </div>
+        <button class="btn ghost" id="btnCancelarId"
+          style="min-height:48px;font-size:16px;max-width:420px;width:100%">✕ Cancelar</button>
+      </div>
+    </section>
+
+    <!-- #s-treino-pesagem não é mais usada — treino reutiliza #s-pesagem diretamente -->
+
+    <!-- TREINO — Modal de desempenho da sessão -->
+    <div id="modalDesemp" class="overlay">
+      <div class="treino-modal-box">
+        <div class="treino-modal-head">
+          <span id="desemp-header">🎓 Desempenho</span>
+          <button class="btn ghost" id="btnFecharDesemp"
+            style="min-height:36px;padding:0 12px;font-size:13px;color:#fff;border-color:rgba(255,255,255,.3)">✕ Fechar</button>
+        </div>
+        <div class="treino-modal-body" id="desemp-tabela"></div>
+      </div>
+    </div>
+
+    <!-- TREINO — Modal de resumo final da sessão -->
+    <div id="modalResumo" class="overlay">
+      <div class="treino-modal-box">
+        <div class="treino-modal-head">
+          <span>🏁 Sessão encerrada — <span id="resumo-nome"></span></span>
+        </div>
+        <div class="treino-modal-body">
+          <div class="t-resumo-cards" id="resumo-cards"></div>
+        </div>
+        <div class="treino-modal-rodape">
+          <button class="btn primary" id="btnEncerrarOk">✓ Voltar à operação real</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD 📊 — relatorios (acesso livre, sem PIN) -->
+    <div id="dashboard" class="overlay">
+      <div class="dash-box">
+        <div class="dash-head">
+          <span class="dash-title">📊 Relatórios — <span id="dashLoja"></span></span>
+          <button class="btn ghost" id="dashFechar" style="min-height:42px;padding:0 14px;flex:0 0 auto">✕ Fechar</button>
+        </div>
+        <div class="dash-tabs">
+          <button class="dash-tab active" data-tab="recentes">Últimas pesagens</button>
+          <button class="dash-tab" data-tab="resumo">Resumo do dia</button>
+          <button class="dash-tab" data-tab="historico">Histórico</button>
+          <button class="dash-tab" data-tab="treinos">🎓 Treinos</button>
+        </div>
+        <div class="dash-body">
+          <!-- ABA 1 — Ultimas pesagens -->
+          <div id="tab-recentes" class="dash-tabc active">
+            <div class="dash-actions">
+              <button class="btn neutral" id="btnExpRecentes">📥 Exportar CSV</button>
+              <button class="btn ghost" id="btnAtualizarRec">↻ Atualizar</button>
+            </div>
+            <div id="recTabela" class="dash-tabela"><div class="dash-msg">Carregando…</div></div>
+          </div>
+          <!-- ABA 2 — Resumo do dia -->
+          <div id="tab-resumo" class="dash-tabc">
+            <div id="resumoCards" class="dash-cards"></div>
+            <div class="dash-chart-wrap">
+              <h4>Pesagens por hora (hoje)</h4>
+              <canvas id="chartHoras"></canvas>
+            </div>
+          </div>
+          <!-- ABA 3 — Historico -->
+          <div id="tab-historico" class="dash-tabc">
+            <div class="dash-filtros">
+              <select id="filPeriodo">
+                <option value="hoje">Hoje</option>
+                <option value="7">Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="custom">Personalizado</option>
+              </select>
+              <input type="date" id="filDe" style="display:none">
+              <input type="date" id="filAte" style="display:none">
+              <select id="filFamilia">
+                <option value="">Todas as famílias</option>
+                <option value="PIZZAS">PIZZAS</option>
+                <option value="CALZONES">CALZONES</option>
+                <option value="CHEESEBREAD">CHEESEBREAD</option>
+              </select>
+              <select id="filSabor"><option value="">Todos os sabores</option></select>
+              <select id="filStatus">
+                <option value="">Todos os status</option>
+                <option value="OK">OK</option>
+                <option value="ABAIXO">ABAIXO</option>
+                <option value="ACIMA">ACIMA</option>
+              </select>
+              <button class="btn primary" id="btnFiltrarHist" style="min-height:42px;padding:0 16px;flex:0 0 auto">Filtrar</button>
+              <button class="btn neutral" id="btnExpHist" style="min-height:42px;padding:0 14px;flex:0 0 auto">📥 CSV</button>
+            </div>
+            <div id="histTabela" class="dash-tabela"></div>
+            <div id="histRodape" class="dash-rodape"></div>
+            <div id="histPag" class="dash-pag"></div>
+          </div>
+          <!-- ABA 4 — Treinos -->
+          <div id="tab-treinos" class="dash-tabc">
+            <div class="dash-filtros">
+              <select id="filPeriodoTreino">
+                <option value="hoje">Hoje</option>
+                <option value="7" selected>Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+              </select>
+              <select id="filOperador"><option value="">Todos os operadores</option></select>
+              <button class="btn primary" id="btnFiltrarTreinos"
+                style="min-height:42px;padding:0 16px;flex:0 0 auto">Filtrar</button>
+            </div>
+            <div id="tab-treinos-body"><div class="dash-msg">Selecione o período e clique em Filtrar.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DE PIN ⚙️ — PIN sempre validado no servidor -->
+    <div id="modalPin" class="overlay">
+      <div class="pin-box">
+        <div class="pin-head">
+          <span>🔐 PIN do administrador</span>
+          <button class="btn ghost" id="pinCancelarBtn" style="min-height:36px;padding:0 12px;font-size:13px">✕ Cancelar</button>
+        </div>
+        <div class="pin-body">
+          <div class="pin-dots">
+            <div class="pin-dot" id="pd0"></div>
+            <div class="pin-dot" id="pd1"></div>
+            <div class="pin-dot" id="pd2"></div>
+            <div class="pin-dot" id="pd3"></div>
+          </div>
+          <div class="pin-msg" id="pinMsg"></div>
+          <div class="pin-lockout-txt" id="pinLockoutTxt" style="display:none"></div>
+          <div class="pin-teclado">
+            <button class="pin-tecla" onclick="pinDigitar('1')">1</button>
+            <button class="pin-tecla" onclick="pinDigitar('2')">2</button>
+            <button class="pin-tecla" onclick="pinDigitar('3')">3</button>
+            <button class="pin-tecla" onclick="pinDigitar('4')">4</button>
+            <button class="pin-tecla" onclick="pinDigitar('5')">5</button>
+            <button class="pin-tecla" onclick="pinDigitar('6')">6</button>
+            <button class="pin-tecla" onclick="pinDigitar('7')">7</button>
+            <button class="pin-tecla" onclick="pinDigitar('8')">8</button>
+            <button class="pin-tecla" onclick="pinDigitar('9')">9</button>
+            <button class="pin-tecla del" onclick="pinApagar()">⌫</button>
+            <button class="pin-tecla" onclick="pinDigitar('0')">0</button>
+            <button class="pin-tecla cancel" onclick="fecharModalPin()">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAINEL DE CONFIG ⚙️ -->
+    <div id="modalConfig" class="overlay">
+      <div class="cfg-box">
+        <div class="cfg-head">
+          <span>⚙️ Configurações — <span id="cfgLojaNome"></span></span>
+          <button class="btn ghost" id="cfgFecharBtn"
+            style="min-height:36px;padding:0 12px;font-size:13px;color:#fff;border-color:rgba(255,255,255,.3)">✕ Fechar</button>
+        </div>
+        <div class="cfg-body" id="cfgBody">
+          <!-- Seção 1: Loja -->
+          <div class="cfg-sec">
+            <div class="cfg-sec-titulo">🏪 Identificação da Loja</div>
+            <div class="cfg-campo">
+              <label>Unidade</label>
+              <select id="cfgLojaSelect"></select>
+            </div>
+          </div>
+          <!-- Seção 2: Supabase -->
+          <div class="cfg-sec">
+            <div class="cfg-sec-titulo">☁️ Conexão Supabase</div>
+            <div class="cfg-campo">
+              <label>URL do projeto</label>
+              <input type="url" id="cfgSupabaseUrl" placeholder="https://xxxx.supabase.co" autocomplete="off">
+            </div>
+            <div class="cfg-campo">
+              <label>Chave pública (anon key)</label>
+              <input type="text" id="cfgSupabaseKey" placeholder="sb_publishable_..." autocomplete="off">
+            </div>
+            <button class="btn neutral" id="cfgTestarSupa" style="min-height:46px;font-size:15px">🔗 Testar conexão</button>
+            <div id="cfgSupaAviso" style="display:none"></div>
+          </div>
+          <!-- Seção 3: Servidor -->
+          <div class="cfg-sec">
+            <div class="cfg-sec-titulo">🖥️ Conexão Servidor</div>
+            <div class="cfg-campo">
+              <label>IP do servidor (notebook)</label>
+              <input type="text" id="cfgIpServidor" placeholder="192.168.68.103" autocomplete="off">
+            </div>
+            <button class="btn neutral" id="cfgReconectar" style="min-height:46px;font-size:15px">↻ Reconectar WebSocket</button>
+          </div>
+          <!-- Seção 4: Segurança -->
+          <div class="cfg-sec">
+            <div class="cfg-sec-titulo">🔐 Segurança</div>
+            <div class="cfg-aviso" id="cfgPinAvisoPadrao" style="display:none">
+              ⚠️ PIN padrão "1234" em uso — troque agora por segurança.
+            </div>
+            <div class="cfg-campo">
+              <label>Novo PIN — clique nos círculos para digitar (deixe em branco para não alterar)</label>
+              <div class="pin-mini-row">
+                <div class="pin-mini-dots" id="cfgNovoPinDots" onclick="cfgPinFocar('novo')">
+                  <div class="pin-mini-dot" id="npd0"></div>
+                  <div class="pin-mini-dot" id="npd1"></div>
+                  <div class="pin-mini-dot" id="npd2"></div>
+                  <div class="pin-mini-dot" id="npd3"></div>
+                </div>
+                <button class="btn ghost" onclick="cfgPinLimpar('novo')"
+                  style="min-height:40px;padding:0 12px;font-size:13px">Limpar</button>
+              </div>
+            </div>
+            <div class="cfg-campo" id="cfgConfPinCampo" style="display:none">
+              <label>Confirmar novo PIN</label>
+              <div class="pin-mini-row">
+                <div class="pin-mini-dots" id="cfgConfPinDots" onclick="cfgPinFocar('conf')">
+                  <div class="pin-mini-dot" id="cpd0"></div>
+                  <div class="pin-mini-dot" id="cpd1"></div>
+                  <div class="pin-mini-dot" id="cpd2"></div>
+                  <div class="pin-mini-dot" id="cpd3"></div>
+                </div>
+                <button class="btn ghost" onclick="cfgPinLimpar('conf')"
+                  style="min-height:40px;padding:0 12px;font-size:13px">Limpar</button>
+              </div>
+            </div>
+            <div class="pin-mini-teclado" id="cfgPinMiniTeclado">
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('1')">1</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('2')">2</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('3')">3</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('4')">4</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('5')">5</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('6')">6</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('7')">7</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('8')">8</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('9')">9</button>
+              <button class="pin-mini-tecla" onclick="cfgPinApagar()">⌫</button>
+              <button class="pin-mini-tecla" onclick="cfgPinDigitar('0')">0</button>
+              <button class="pin-mini-tecla" onclick="cfgPinFocar(null)" style="font-size:14px;color:var(--ok)">OK</button>
+            </div>
+            <div id="cfgPinErroConf" style="display:none"></div>
+          </div>
+        </div>
+        <div class="cfg-rodape">
+          <button class="btn ghost" id="cfgCancelarBtn">Cancelar</button>
+          <button class="btn primary" id="cfgSalvarBtn">💾 Salvar configurações</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+<script>
+"use strict";
+/* =====================================================================
+   FICHA TECNICA — gramaturas de mussarela (em GRAMAS)
+   Conferida com "Ficha Tecnica 2026". Para ajustar qualquer valor,
+   basta editar os numeros abaixo.
+
+   Regra real da planilha:
+   - Quase todo sabor usa o "base" do tamanho.
+   - QUEIJO (pizza so de mussarela) leva mais (override).
+   - FRANGO C/ REQUEIJAO NAO leva mussarela, exceto na massa PAN.
+   Use 0 em overrides para indicar "nao leva mussarela".
+   ===================================================================== */
+const FICHA = {
+  PIZZAS: {
+    titulo: "PIZZA",
+    // Subdivisoes do cardapio (passo 2). Sabores na ORDEM do cardapio.
+    grupos: [
+      { nome: "MAIS PEDIDAS", sabores: [
+        "QUEIJO", "PEPPERONI", "CALABRESA", "MARGHERITA", "3 QUEIJOS", "FRANGO C/ REQUEIJÃO ESPECIAL"
+      ]},
+      { nome: "CLÁSSICAS", sabores: [
+        "CHEDDAR E BACON", "CHEDDAR E PEPPERONI", "NAPOLITANA", "CORN & BACON", "4 QUEIJOS",
+        "CATUPERONI", "PÃO DE ALHO", "FRANGO CAIPIRA", "VEGGIE", "PORTUGUESA"
+      ]},
+      { nome: "ESPECIAIS", sabores: [
+        "CARNE SECA", "PEPPERROCK", "LA BIANCA", "CALABRESA ESPECIAL", "FRANGO C/ CREAM CHEESE",
+        "FRANGO GRELHADO", "EXTRAVAGANZZA", "MEAT & BACON", "EGG & BACON"
+      ]},
+    ],
+    tamanhos: [
+      {id:"BRT_TRD",       nome:"Broto Tradicional",   massa:'7"',  base:70},
+      {id:"MED_TRD",       nome:"Média Tradicional",   massa:'12"', base:140},
+      {id:"MED_FIN",       nome:"Média Fina",          massa:'12"', base:140},
+      {id:"MED_PAN",       nome:"Média Pan",           massa:'12"', base:200},
+      {id:"GRD_TRD",       nome:"Grande Tradicional",  massa:'14"', base:200},
+      {id:"GRD_FIN",       nome:"Grande Fina",         massa:'14"', base:200},
+      {id:"GRD_FINISSIMA", nome:"Grande Finíssima",    massa:'14"', base:200},
+      {id:"GIG_TRD",       nome:"Gigante Tradicional", massa:'16"', base:250},
+      {id:"GIG_FIN",       nome:"Gigante Fina",        massa:'16"', base:250},
+    ],
+    // A maioria dos sabores usa o "base" do tamanho. Excecoes (override por tamanho):
+    //   QUEIJO = pizza so de mussarela -> leva mais (igual a "MUSSARELA" da ficha).
+    //   FRANGO C/ REQUEIJAO ESPECIAL = sem mussarela (0), exceto na massa PAN.
+    overrides: {
+      BRT_TRD:       {"QUEIJO":100, "FRANGO C/ REQUEIJÃO ESPECIAL":0},
+      MED_TRD:       {"QUEIJO":210, "FRANGO C/ REQUEIJÃO ESPECIAL":0},
+      MED_FIN:       {"QUEIJO":200, "FRANGO C/ REQUEIJÃO ESPECIAL":0},
+      MED_PAN:       {"QUEIJO":280, "FRANGO C/ REQUEIJÃO ESPECIAL":100},
+      GRD_TRD:       {"QUEIJO":300, "FRANGO C/ REQUEIJÃO ESPECIAL":0},
+      GRD_FIN:       {"QUEIJO":280, "FRANGO C/ REQUEIJÃO ESPECIAL":0},
+      GRD_FINISSIMA: {"FRANGO C/ REQUEIJÃO ESPECIAL":0},
+      GIG_TRD:       {"QUEIJO":375, "FRANGO C/ REQUEIJÃO ESPECIAL":0},
+      GIG_FIN:       {"QUEIJO":350, "FRANGO C/ REQUEIJÃO ESPECIAL":0},
+    },
+  },
+  CALZONES: {
+    titulo: "CALZONE",
+    sabores: ["4 QUEIJOS","CALABRESA","MARGHERITA"],
+    tamanhos: [{id:"CALZONE", nome:"Calzone", massa:'8.5"', base:50}],
+    overrides: {},
+  },
+  CHEESEBREAD: {
+    titulo: "CHEESEBREAD",
+    sabores: ["4 QUEIJOS","CALABRESA","MARGHERITA"],
+    tamanhos: [{id:"CHEESE", nome:"Cheesebread", massa:'8.5"', base:100}],
+    overrides: {},
+  },
+};
+
+/* Retorna a gramatura de mussarela do produto escolhido (0 = nao leva). */
+function gramasDe(catKey, tamId, sabor){
+  const cat = FICHA[catKey];
+  const ovr = cat.overrides[tamId] || {};
+  if (Object.prototype.hasOwnProperty.call(ovr, sabor)) return ovr[sabor];
+  const t = cat.tamanhos.find(t => t.id === tamId);
+  return t ? t.base : 0;
+}
+
+/* =====================================================================
+   FRANGO — gramaturas (em GRAMAS) por tamanho. Conferido com a planilha.
+   Dois tipos de frango: desfiado (maioria) e grelhado (mais leve).
+   ===================================================================== */
+const FRANGO_DESFIADO = {BRT_TRD:50, MED_TRD:100, MED_FIN:100, MED_PAN:100,
+  GRD_TRD:120, GRD_FIN:120, GRD_FINISSIMA:120, GIG_TRD:140, GIG_FIN:140};
+const FRANGO_GRELHADO = {BRT_TRD:20, MED_TRD:60, MED_FIN:60, MED_PAN:70,
+  GRD_TRD:70, GRD_FIN:70, GRD_FINISSIMA:70, GIG_TRD:90, GIG_FIN:90};
+// Cada sabor de frango aponta o TIPO/CORTE e a tabela de gramaturas.
+// (Para mudar o nome do corte — ex.: "EM CUBOS" — basta editar o "tipo".)
+const FRANGO_POR_SABOR = {
+  "FRANGO C/ REQUEIJÃO ESPECIAL": {tipo:"DESFIADO", tab:FRANGO_DESFIADO},
+  "FRANGO CAIPIRA":               {tipo:"DESFIADO", tab:FRANGO_DESFIADO},
+  "FRANGO C/ CREAM CHEESE":       {tipo:"DESFIADO", tab:FRANGO_DESFIADO},
+  "FRANGO GRELHADO":              {tipo:"GRELHADO", tab:FRANGO_GRELHADO},
+};
+/* Gramatura de frango do produto (0 = nao leva frango). */
+function gramasFrango(catKey, tamId, sabor){
+  if (catKey !== "PIZZAS") return 0;
+  const f = FRANGO_POR_SABOR[sabor];
+  return f ? (f.tab[tamId] || 0) : 0;
+}
+/* Tipo/corte do frango do sabor (ex.: "DESFIADO", "GRELHADO"). */
+function tipoFrango(sabor){
+  const f = FRANGO_POR_SABOR[sabor];
+  return f ? f.tipo : "";
+}
+/* Lista ORDENADA de ingredientes a pesar: mussarela, depois frango (os que tiverem). */
+function ingredientesDe(catKey, tamId, sabor){
+  const lista = [];
+  const m = gramasDe(catKey, tamId, sabor);
+  if (m > 0) lista.push({nome:"MUSSARELA", alvo:m});
+  const f = gramasFrango(catKey, tamId, sabor);
+  if (f > 0) lista.push({nome:"FRANGO", alvo:f, tipo:tipoFrango(sabor)});
+  return lista;
+}
+
+/* =====================================================================
+   CONEXAO WEBSOCKET com o servidor (peso em tempo real)
+   ===================================================================== */
+const WS_PORT = 8765;
+const IP_FIXO = "192.168.68.103";
+// Usa o host pelo qual a pagina foi aberta (tablet -> IP; notebook -> localhost).
+// Se aberto via arquivo local (file://), cai no IP fixo do notebook.
+const WS_HOST = (location.protocol.startsWith("http") && location.hostname)
+  ? location.hostname : IP_FIXO;
+const WS_URL = "ws://" + WS_HOST + ":" + WS_PORT;
+let wsUrlAtual = WS_URL;   // mutável — atualizado pelo painel de config ao reconectar
+
+let live = { grams: 0, connected: false, estavel: true };  // ultimo dado recebido da balanca
+let wsOpen = false;
+let ws = null;
+let cfg = {};   // config recebida do servidor (supabase_url/key, loja_id, loja_nome, ip)
+
+/* Envia um objeto JSON ao servidor (se o WebSocket estiver aberto). */
+function wsEnviar(obj){
+  try { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); }
+  catch(_){}
+}
+
+function conectarWS(){
+  try { ws = new WebSocket(wsUrlAtual); }
+  catch(e){ agendarReconexao(); return; }
+
+  ws.onopen = () => { wsOpen = true; atualizarBadge(); };
+  ws.onmessage = (ev) => {
+    let d; try { d = JSON.parse(ev.data); } catch(_){ return; }
+    if (d.tipo){ tratarMensagemControle(d); return; }   // config / pin / resultado
+    // Mensagem de peso (sem campo "tipo"):
+    if (typeof d.grams === "number") live.grams = d.grams;
+    live.connected = !!d.connected;
+    live.estavel = (d.estavel !== false);   // false = peso em movimento (instavel)
+    atualizarBadge();
+  };
+  ws.onclose = () => { wsOpen = false; live.connected = false; atualizarBadge(); agendarReconexao(); };
+  ws.onerror = () => { try { ws.close(); } catch(_){} };
+}
+let reconTimer = null;
+function agendarReconexao(){
+  if (reconTimer) return;
+  reconTimer = setTimeout(() => { reconTimer = null; conectarWS(); }, 2000);
+}
+
+/* Mensagens de controle vindas do servidor (config, resultado de PIN). */
+function tratarMensagemControle(d){
+  if (d.tipo === "config_atual"){
+    cfg = d.data || {};
+  }
+  // O painel (Estagio 3) trata pin_resultado / config_resultado, se existir.
+  if (typeof tratarMensagemPainel === "function") tratarMensagemPainel(d);
+}
+
+conectarWS();
+
+/* =====================================================================
+   ESTADO DA TELA
+   ===================================================================== */
+const state = { categoria:null, grupoIdx:null, sabor:null, tamanho:null, alvo:0, etapas:[], etapaIdx:0 };
+
+const $ = sel => document.querySelector(sel);
+function mostrarTela(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $("#"+id).classList.add("active");
+}
+
+/* Trilha de navegacao no topo */
+function atualizarCrumb(){
+  const c = $("#crumb");
+  if (!state.categoria){ c.textContent = "Selecione o produto"; return; }
+  let txt = FICHA[state.categoria].titulo;
+  if (state.grupoIdx != null) txt += " › " + FICHA[state.categoria].grupos[state.grupoIdx].nome;
+  if (state.sabor) txt += " › <b>"+state.sabor+"</b>";
+  if (state.tamanho){
+    const t = FICHA[state.categoria].tamanhos.find(t=>t.id===state.tamanho);
+    txt += " › "+t.nome;
+  }
+  c.innerHTML = txt;
+}
+
+/* ---------- PASSO 1: categorias ---------- */
+function montarCategorias(){
+  const g = $("#grid-categoria");
+  g.innerHTML = "";
+  Object.keys(FICHA).forEach(key => {
+    const b = document.createElement("button");
+    b.className = "btn primary";
+    b.textContent = key; // PIZZAS, CALZONES, CHEESEBREAD
+    b.onclick = () => escolherCategoria(key);
+    g.appendChild(b);
+  });
+}
+function escolherCategoria(key){
+  desbloquearAudio();
+  state.categoria = key; state.grupoIdx = null; state.sabor = null; state.tamanho = null;
+  atualizarCrumb();
+  if (FICHA[key].grupos){
+    // Pizzas tem subdivisao (passo 2: MAIS PEDIDAS / CLASSICAS / ESPECIAIS)
+    montarGrupos();
+    mostrarTela("s-grupo");
+  } else {
+    // Calzones / Cheesebread vao direto para o sabor
+    montarSabores(FICHA[key].sabores);
+    mostrarTela("s-sabor");
+  }
+}
+
+/* ---------- PASSO 2: grupo de pizza ---------- */
+function montarGrupos(){
+  const g = $("#grid-grupo");
+  g.innerHTML = "";
+  FICHA[state.categoria].grupos.forEach((grupo, idx) => {
+    const b = document.createElement("button");
+    b.className = "btn primary";
+    b.textContent = grupo.nome;
+    b.onclick = () => escolherGrupo(idx);
+    g.appendChild(b);
+  });
+}
+function escolherGrupo(idx){
+  state.grupoIdx = idx; state.sabor = null; state.tamanho = null;
+  montarSabores(FICHA[state.categoria].grupos[idx].sabores);
+  atualizarCrumb();
+  mostrarTela("s-sabor");
+}
+
+/* ---------- PASSO 3: sabores em botoes (ordem do cardapio, sem lista suspensa) ---------- */
+function montarSabores(sabores){
+  const g = $("#grid-sabor");
+  g.innerHTML = "";
+  sabores.forEach(s => {
+    const b = document.createElement("button");
+    b.className = "btn primary";
+    b.textContent = s;
+    b.onclick = () => escolherSabor(s);
+    g.appendChild(b);
+  });
+}
+function escolherSabor(sabor){
+  state.sabor = sabor; state.tamanho = null;
+  montarTamanhos();
+  atualizarCrumb();
+  mostrarTela("s-tamanho");
+}
+
+/* ---------- PASSO 4: tamanhos ---------- */
+function montarTamanhos(){
+  const g = $("#grid-tamanho");
+  g.innerHTML = "";
+
+  if (state.categoria === "PIZZAS"){
+    const TAM_COR = {
+      BRT_TRD:'tc-amarelo', MED_TRD:'tc-azul',   MED_FIN:'tc-vermelho',
+      MED_PAN:'tc-rosa',    GRD_TRD:'tc-branco',  GRD_FIN:'tc-roxo',
+      GIG_TRD:'tc-branco',  GIG_FIN:'tc-verde',
+    };
+    const COLS = [
+      {key:"BRT", label:"Broto",   sub:'7"'},
+      {key:"MED", label:"Média",   sub:'12"'},
+      {key:"GRD", label:"Grande",  sub:'14"'},
+      {key:"GIG", label:"Gigante", sub:'16"'},
+    ];
+    const ROWS = [
+      {key:"TRD",       label:"Tradicional"},
+      {key:"FIN",       label:"Fina"},
+      {key:"FINISSIMA", label:"Finíssima"},
+      {key:"PAN",       label:"Pan"},
+    ];
+
+    const grid = document.createElement("div");
+    grid.className = "tam-grid";
+
+    // Cabeçalho de colunas
+    const head = document.createElement("div");
+    head.className = "tam-grid-row";
+    head.appendChild(Object.assign(document.createElement("div"),{className:"tam-cell tam-cell-corner"}));
+    COLS.forEach(col => {
+      const c = document.createElement("div");
+      c.className = "tam-cell tam-col-header";
+      c.innerHTML = `<b>${col.label}</b><span>${col.sub}</span>`;
+      head.appendChild(c);
+    });
+    grid.appendChild(head);
+
+    // Linhas de massa
+    ROWS.forEach(row => {
+      // Só renderiza a linha se houver pelo menos um tamanho disponível nela
+      const temAlgum = COLS.some(col =>
+        FICHA.PIZZAS.tamanhos.find(t => t.id === col.key+"_"+row.key));
+      if (!temAlgum) return;
+
+      const rowEl = document.createElement("div");
+      rowEl.className = "tam-grid-row";
+
+      const rh = document.createElement("div");
+      rh.className = "tam-cell tam-row-header";
+      rh.textContent = row.label;
+      rowEl.appendChild(rh);
+
+      COLS.forEach(col => {
+        const id = col.key + "_" + row.key;
+        const t = FICHA.PIZZAS.tamanhos.find(t => t.id === id);
+        const cell = document.createElement("div");
+
+        if (!t){
+          cell.className = "tam-cell tam-cell-empty";
+          cell.textContent = "—";
+        } else {
+          const ings = ingredientesDe("PIZZAS", t.id, state.sabor);
+          if (!ings.length){
+            cell.className = "tam-cell tam-cell-empty";
+            cell.textContent = "—";
+          } else {
+            const cor = TAM_COR[id] || '';
+            cell.className = "tam-cell tam-cell-active" + (cor ? ' '+cor : '');
+            const muss  = ings.find(i => i.nome === "MUSSARELA");
+            const frang = ings.find(i => i.nome === "FRANGO");
+            let html = "";
+            if (muss)  html += `<span class="tam-gram">${muss.alvo}<span class="tam-g"> g</span></span>`;
+            if (frang) html += `<span class="tam-gram-frang">🍗 ${frang.alvo} g</span>`;
+            cell.innerHTML = html;
+            cell.addEventListener("click", () => escolherTamanho(t.id, ings));
+          }
+        }
+        rowEl.appendChild(cell);
+      });
+      grid.appendChild(rowEl);
+    });
+
+    g.appendChild(grid);
+  } else {
+    // Layout padrão para Calzone e Cheesebread
+    FICHA[state.categoria].tamanhos.forEach(t => {
+      const ings = ingredientesDe(state.categoria, t.id, state.sabor);
+      const b = document.createElement("button");
+      if (!ings.length){
+        b.className = "btn neutral"; b.disabled = true;
+        b.innerHTML = `${t.nome}<span class="sub">${t.massa}</span><span class="sub">não disponível</span>`;
+      } else {
+        b.className = "btn primary";
+        const resumo = ings.map(i => (i.nome === "MUSSARELA" ? "🧀 " : "🍗 ") + i.alvo + "g").join(" + ");
+        b.innerHTML = `${t.nome}<span class="sub">${t.massa}</span><span class="gram-multi">${resumo}</span>`;
+        b.onclick = () => escolherTamanho(t.id, ings);
+      }
+      g.appendChild(b);
+    });
+  }
+}
+function escolherTamanho(tamId, ingredientes){
+  state.tamanho = tamId;
+  state.etapas = ingredientes;
+  state.etapaIdx = 0;
+  state.alvo = ingredientes[0].alvo;
+  if (treinoAtivo) iniciarTreinoPesagem(); // inicializa estado de treino antes de entrar na tela
+  iniciarPesagem();
+  atualizarCrumb();
+  mostrarTela("s-pesagem");
+}
+
+/* ---------- PASSO 5: pesagem em tempo real (uma etapa por ingrediente) ---------- */
+function iniciarPesagem(){
+  resetCaptura();
+  histRaw = []; taraFeita = false; tara = 0; taraArmada = true;
+  const t = FICHA[state.categoria].tamanhos.find(t=>t.id===state.tamanho);
+  $("#pesoProduto").innerHTML = `${state.sabor} — ${t.nome}<small>${FICHA[state.categoria].titulo} • massa ${t.massa}</small>`;
+  aplicarEtapa();
+  ultimoEstado = null;
+}
+
+/* Mostra a etapa (ingrediente) atual na tela de pesagem. */
+function aplicarEtapa(){
+  const etapa = state.etapas[state.etapaIdx];
+  const contador = state.etapas.length > 1 ? `  (${state.etapaIdx + 1}/${state.etapas.length})` : "";
+  const nome = etapa.nome + (etapa.tipo ? " " + etapa.tipo : "");   // ex.: "FRANGO DESFIADO"
+  $("#ingredienteAtual").textContent = "Pesando: " + nome + contador;
+  $("#metaTxt").textContent = state.alvo + " g";
+  atualizarBotaoProximo();
+}
+
+/* Mostra o botao "Proximo: <ingrediente>" quando ha mais etapas a pesar. */
+function atualizarBotaoProximo(){
+  const btn = $("#btnProximo");
+  const temProximo = state.etapas && state.etapaIdx < state.etapas.length - 1;
+  if (temProximo){
+    const prox = state.etapas[state.etapaIdx + 1];
+    btn.style.display = "";
+    btn.textContent = "Próximo: " + prox.nome + (prox.tipo ? " " + prox.tipo : "") + " ▶";
+  } else {
+    btn.style.display = "none";
+  }
+}
+
+/* Avanca para o proximo ingrediente: RE-TARA (zera tudo que ja esta no prato). */
+function proximoIngrediente(){
+  if (!state.etapas || state.etapaIdx >= state.etapas.length - 1) return;
+  registrarPesagemAtual();   // registra a etapa que acabou (ex.: a mussarela)
+  tara = rawAtual(); taraFeita = true; taraArmada = false; histRaw = [];
+  state.etapaIdx++;
+  state.alvo = state.etapas[state.etapaIdx].alvo;
+  ultimoEstado = null;
+  document.body.classList.remove("excedido");
+  aplicarEtapa();
+  const prox = state.etapas[state.etapaIdx];
+  mostrarToast("⚖️ Zerado — agora pese o " + prox.nome + (prox.tipo ? " " + prox.tipo : ""));
+}
+
+/* =====================================================================
+   LOGICA DE COR / ALERTA  (atualizada continuamente)
+   ===================================================================== */
+function classificar(atual, alvo){
+  if (alvo <= 0) return "under";
+  const d = atual - alvo;
+  if (atual > alvo + 5) return "over";   // vermelho + beep
+  if (d >= -5 && d <= 5) return "ok";    // verde (dentro de +-5g)
+  if (d >= -20 && d < -5) return "near"; // amarelo (-20 a -5)
+  return "under";                         // muito abaixo
+}
+
+/* Mensagem de status, usando o nome do ingrediente que esta sendo pesado agora. */
+function textoStatus(est){
+  const ing = (state.etapas[state.etapaIdx] || {nome:"MUSSARELA"}).nome;
+  if (est === "under") return "Adicione " + ing.toLowerCase();
+  if (est === "near")  return "Quase lá…";
+  if (est === "ok")    return "PESO IDEAL ✓";
+  return "EXCEDIDO — REMOVA " + ing;   // over
+}
+
+let ultimoEstado = null;
+
+function renderPesagem(){
+  if (!$("#s-pesagem").classList.contains("active")) return;
+  const sec = $("#s-pesagem");
+  sec.classList.remove("st-under","st-near","st-ok","st-over","st-settling");
+
+  // GUARDA PRE-TARA — primeiro de tudo: antes de tarar, NUNCA classifica, NUNCA apita,
+  // NUNCA fica vermelho, independente do peso no prato.
+  if (!taraFeita){
+    sec.classList.add("st-under");
+    const rawNow = rawAtual();
+    $("#peso").innerHTML = rawNow + '<span class="un"> g</span>';
+    $("#barra").style.width = "0%";
+    $("#taraInfo").textContent = "";
+    $("#statusTxt").textContent = rawNow >= 30
+      ? "⚖️ Aguardando estabilizar… (ou toque Zerar)"
+      : "Coloque a base no prato";
+    document.body.classList.remove("excedido");
+    ultimoEstado = null;
+    return;
+  }
+
+  const alvo = state.alvo;
+  const atual = pesoAtual();
+  const instavel = wsOpen && live.estavel === false;
+
+  $("#peso").innerHTML = atual + '<span class="un"> g</span>';
+  const max = Math.max(1, alvo * 1.2);
+  $("#barra").style.width = Math.max(0, Math.min(100, (atual / max) * 100)) + "%";
+  $("#taraInfo").textContent = "· base: " + tara + " g (tarada)";
+
+  if (instavel){
+    sec.classList.add("st-settling");
+    $("#statusTxt").textContent = "⏳ Estabilizando… aguarde";
+    document.body.classList.remove("excedido");
+    ultimoEstado = null;
+    return;
+  }
+
+  capturarPeso(atual);
+  const est = classificar(atual, alvo);
+  $("#statusTxt").textContent = textoStatus(est);
+  sec.classList.add("st-" + est);
+  if (est === "over"){
+    document.body.classList.add("excedido");
+    if (ultimoEstado !== "over") beep(3);
+  } else {
+    document.body.classList.remove("excedido");
+  }
+  ultimoEstado = est;
+}
+
+/* =====================================================================
+   BADGE DE CONEXAO
+   ===================================================================== */
+function atualizarBadge(){
+  const b = $("#badge");
+  if (!wsOpen){ b.className = "badge off"; b.textContent = "⚠ Desconectada"; return; }
+  if (live.connected){ b.className = "badge on"; b.textContent = "● Balança conectada"; }
+  else { b.className = "badge warn"; b.textContent = "⚠ Balança desconectada"; }
+}
+
+/* =====================================================================
+   ALERTA SONORO — Web Audio API (880Hz, 300ms, 3x com 200ms de intervalo)
+   ===================================================================== */
+let audioCtx = null;
+function desbloquearAudio(){
+  // Navegadores exigem um gesto do usuario para liberar o audio.
+  if (!audioCtx){
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+}
+function beep(vezes){
+  desbloquearAudio();
+  if (!audioCtx) return;
+  let t = audioCtx.currentTime;
+  for (let i=0; i<vezes; i++){
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.6, t + 0.01);
+    gain.gain.setValueAtTime(0.6, t + 0.30);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.32);
+    t += 0.30 + 0.20; // 300ms de beep + 200ms de silencio
+  }
+}
+
+/* Peso CRU lido da balanca (base + mussarela). */
+function rawAtual(){ return live.grams || 0; }
+/* Peso mostrado = SO a mussarela (desconta a tara da base). */
+function pesoAtual(){ return Math.max(0, rawAtual() - tara); }
+
+/* =====================================================================
+   TARA AUTOMATICA — zera o peso da base (massa/disco) sozinho
+   Fluxo: operador poe a base -> sistema detecta o peso estavel e tara ->
+   ao adicionar mussarela, mostra SO a mussarela (peso cru - tara).
+   Quando o prato esvazia, rearma para tarar a proxima base.
+   ===================================================================== */
+let tara = 0;
+let taraArmada = true;
+let taraFeita = false;
+let histRaw = [];
+const TARA_VAZIO = 15;
+const TARA_MIN_BASE = 30;
+
+function atualizarTara(){
+  const raw = rawAtual();
+  if (raw < TARA_VAZIO){
+    // Prato vazio: limpa o historico e rearma.
+    histRaw = [];
+    if (taraFeita || tara !== 0){ tara = 0; taraFeita = false; }
+    taraArmada = true;
+  } else if (taraArmada && raw >= TARA_MIN_BASE){
+    // Acumula SO leituras com base no prato (nao mistura com zeros).
+    histRaw.push(raw);
+    if (histRaw.length > 4) histRaw.shift();
+    // 3 leituras consecutivas com variacao <= 20g = estavel -> tara.
+    if (histRaw.length >= 3 &&
+        (Math.max(...histRaw) - Math.min(...histRaw)) <= 20){
+      tara = Math.round(histRaw.reduce((a,b)=>a+b,0) / histRaw.length);
+      taraFeita = true; taraArmada = false; histRaw = [];
+      mostrarToast("⚖️ Base tarada: " + tara + " g — adicione a mussarela");
+    }
+  }
+}
+
+/* Botao "Zerar": tara o que estiver no prato agora (tara manual). */
+function tararManual(){
+  tara = rawAtual(); taraFeita = true; taraArmada = false; histRaw = [];
+  mostrarToast("⚖️ Zerado em " + tara + " g");
+}
+
+let toastTimer = null;
+function mostrarToast(msg){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* =====================================================================
+   LOG AUTOMATICO — registra cada pesagem (peso valido) no Supabase via servidor.
+   Peso valido = ficou ESTAVEL acima de 10g por pelo menos 1 segundo.
+   Registra no fim de cada etapa: ao avancar de ingrediente, ao trocar de
+   produto, ou quando o prato zera (pizza retirada). Sem acao do operador.
+   ===================================================================== */
+let pesoValido = 0;     // ultimo peso estavel valido (>10g por >=1s) da etapa atual
+let validoCand = 0;     // valor candidato sendo cronometrado
+let validoDesde = 0;    // momento (ms) em que o candidato comecou
+
+function resetCaptura(){ pesoValido = 0; validoCand = 0; validoDesde = 0; }
+
+/* Chamado no loop, no peso estavel, para capturar o ultimo peso valido. */
+function capturarPeso(atual){
+  if (!live.estavel || atual <= 10) return;
+  if (atual !== validoCand){ validoCand = atual; validoDesde = Date.now(); }
+  else if (Date.now() - validoDesde >= 1000){ pesoValido = atual; }
+}
+
+/* Registra a pesagem da etapa atual (se houve peso valido) e zera a captura. */
+function registrarPesagemAtual(){
+  const etapa = state.etapas[state.etapaIdx];
+  if (pesoValido <= 10 || !etapa){ resetCaptura(); return; }
+  const t = FICHA[state.categoria].tamanhos.find(t => t.id === state.tamanho);
+  const alvo = etapa.alvo;
+  const real = pesoValido;
+  const dif = real - alvo;
+  const status = dif > 5 ? "ACIMA" : (dif < -5 ? "ABAIXO" : "OK");
+  wsEnviar({tipo: "log", data: {
+    familia: state.categoria,                               // PIZZAS / CALZONES / CHEESEBREAD
+    sabor: state.sabor,
+    tamanho: t ? (t.nome + " " + t.massa) : state.tamanho,
+    ingrediente: etapa.nome + (etapa.tipo ? " " + etapa.tipo : ""),
+    alvo_g: alvo,
+    real_g: real,
+    diferenca_g: dif,
+    status: status,
+  }});
+  resetCaptura();
+}
+
+/* =====================================================================
+   FIM DE PESAGEM — ao retirar a pizza pronta do prato, volta sozinho
+   para a tela inicial (escolha de produto), sem precisar apertar "voltar".
+   Detecta a transicao: prato COM produto -> prato VAZIO.
+   ===================================================================== */
+let pratoTinhaPeso = false;   // teve produto no prato desde que entrou na pesagem
+let vazioContador = 0;        // ticks seguidos com o prato vazio
+
+function checarFimPesagem(){
+  // So vale na tela de pesagem; fora dela, reseta o estado.
+  if (!$("#s-pesagem").classList.contains("active")){ pratoTinhaPeso = false; vazioContador = 0; return; }
+  const raw = rawAtual();
+  if (raw >= TARA_MIN_BASE){
+    pratoTinhaPeso = true; vazioContador = 0;   // tem produto (base/pizza) no prato
+  } else if (raw < TARA_VAZIO){
+    vazioContador++;
+    // Prato esvaziou depois de ter peso -> pesagem terminou -> volta ao inicio.
+    if (pratoTinhaPeso && vazioContador >= 3){   // ~0,25s vazio (evita disparo falso)
+      pratoTinhaPeso = false; vazioContador = 0;
+      voltarAoInicio();
+    }
+  }
+}
+
+function voltarAoInicio(){
+  if (treinoAtivo){
+    // Treino: registra tentativa e fica em #s-pesagem — reseta tara para nova base
+    const real = pesoValido;
+    resetCaptura(); resetCapturaTreino();
+    taraFeita=false; tara=0; taraArmada=false; histRaw=[];
+    pratoTinhaPeso=false; vazioContador=0;
+    document.body.classList.remove("excedido");
+    if (real > 10) registrarTentativa(real);
+    return;
+  }
+  registrarPesagemAtual();
+  state.categoria = null; state.grupoIdx = null; state.sabor = null; state.tamanho = null;
+  state.etapas = []; state.etapaIdx = 0;
+  document.body.classList.remove("excedido");
+  mostrarTela("s-categoria");
+  atualizarCrumb();
+  mostrarToast("✓ Pesagem concluída — escolha o próximo produto");
+}
+
+/* =====================================================================
+   NAVEGACAO (botoes "voltar") + loop de renderizacao
+   ===================================================================== */
+document.querySelectorAll("[data-voltar]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const destino = btn.getAttribute("data-voltar");
+    document.body.classList.remove("excedido");
+    if (destino === "s-tamanho"){ registrarPesagemAtual(); }  // "Trocar produto": registra a etapa atual
+    if (destino === "s-categoria"){ state.categoria = null; state.grupoIdx = null; }
+    if (destino === "s-sabor"){ state.tamanho = null; }
+    mostrarTela(destino);
+    atualizarCrumb();
+  });
+});
+
+// Botao "Voltar" do passo de sabor: volta ao grupo (pizza) ou a categoria (calzone/cheese).
+$("#btnVoltarSabor").addEventListener("click", () => {
+  document.body.classList.remove("excedido");
+  state.sabor = null;
+  if (FICHA[state.categoria] && FICHA[state.categoria].grupos){
+    mostrarTela("s-grupo");
+  } else {
+    state.categoria = null; state.grupoIdx = null;
+    mostrarTela("s-categoria");
+  }
+  atualizarCrumb();
+});
+
+// Botao de tara manual ("Zerar") na tela de pesagem.
+$("#btnZerar").addEventListener("click", tararManual);
+// Botao "Proximo ingrediente" (ex.: passar da mussarela para o frango).
+$("#btnProximo").addEventListener("click", proximoIngrediente);
+
+/* =====================================================================
+   DASHBOARD 📊 — relatorios da loja (Supabase, com fallback no CSV de backup)
+   Acesso livre (sem PIN). Sempre filtrado pela loja_id do config.
+   ===================================================================== */
+let dadosLoja = [];            // cache dos registros da loja
+let dadosCarregadoEm = 0;
+let histPagina = 1;
+let histFiltrado = [];         // resultado atual do historico (para paginar/exportar)
+
+function dataLocalHoje(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function supabaseOk(){
+  return cfg.supabase_url && cfg.supabase_key && !cfg.supabase_url.includes("SEU-PROJETO");
+}
+
+/* Carrega os registros da loja (Supabase; se falhar, o CSV de backup do servidor). */
+async function dashCarregar(forcar){
+  if (!forcar && dadosLoja.length && (Date.now()-dadosCarregadoEm < 12000)) return dadosLoja;
+  const loja = encodeURIComponent(cfg.loja_id || "");
+  let dados = null;
+  if (supabaseOk()){
+    try {
+      const url = cfg.supabase_url.replace(/\/$/,"") +
+        "/rest/v1/pesagens?loja_id=eq." + loja + "&select=*&order=criado_em.desc&limit=2000";
+      const r = await fetch(url, {headers:{apikey:cfg.supabase_key, Authorization:"Bearer "+cfg.supabase_key}});
+      if (r.ok) dados = await r.json();
+    } catch(_){}
+  }
+  if (dados === null) dados = await carregarCSVBackup();   // modo offline
+  dados.sort((a,b) => String(b.criado_em||(b.data+" "+b.hora)).localeCompare(String(a.criado_em||(a.data+" "+a.hora))));
+  dadosLoja = dados; dadosCarregadoEm = Date.now();
+  return dadosLoja;
+}
+
+/* Le o CSV de backup servido pelo servidor (quando o Supabase esta indisponivel). */
+async function carregarCSVBackup(){
+  try {
+    const r = await fetch("/logs/pesagens_backup.csv?_=" + Date.now());
+    if (!r.ok) return [];
+    const linhas = (await r.text()).trim().split(/\r?\n/);
+    if (linhas.length < 2) return [];
+    const cab = linhas[0].split(",");
+    return linhas.slice(1).map(l => {
+      const v = parseCSVLinha(l), o = {};
+      cab.forEach((c,i) => o[c] = v[i]);
+      o.alvo_g = +o.alvo_g; o.real_g = +o.real_g; o.diferenca_g = +o.diferenca_g;
+      return o;
+    }).filter(o => o.loja_id === cfg.loja_id);
+  } catch(_){ return []; }
+}
+function parseCSVLinha(linha){
+  const out = []; let cur = "", dentro = false;
+  for (let i=0;i<linha.length;i++){
+    const c = linha[i];
+    if (c === '"'){ if (dentro && linha[i+1]==='"'){ cur+='"'; i++; } else dentro = !dentro; }
+    else if (c === "," && !dentro){ out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur); return out;
+}
+
+function abrirDashboard(){
+  $("#dashLoja").textContent = cfg.loja_nome || cfg.loja_id || "(loja não configurada)";
+  $("#dashboard").classList.add("show");
+  document.querySelector('.dash-tab[data-tab="recentes"]').click();
+}
+function fecharDashboard(){ $("#dashboard").classList.remove("show"); }
+function pill(status){ return '<span class="pill ' + status + '">' + status + '</span>'; }
+
+/* ---------- ABA 1: Ultimas pesagens (50 mais recentes) ---------- */
+async function carregarRecentes(){
+  $("#recTabela").innerHTML = '<div class="dash-msg">Carregando…</div>';
+  const dados = (await dashCarregar(true)).slice(0, 50);
+  if (!dados.length){ $("#recTabela").innerHTML = '<div class="dash-msg">Nenhuma pesagem registrada ainda.</div>'; return; }
+  let html = '<table class="dash"><tr><th>Hora</th><th>Produto</th><th>Tamanho</th><th>Ingrediente</th><th>Alvo</th><th>Real</th><th>Dif</th><th>Status</th></tr>';
+  dados.forEach(d => {
+    html += `<tr><td>${d.hora||""}</td><td>${d.sabor||""}</td><td>${d.tamanho||""}</td><td>${d.ingrediente||""}</td>`+
+      `<td class="num">${d.alvo_g}g</td><td class="num">${d.real_g}g</td><td class="num">${(+d.diferenca_g>=0?"+":"")+d.diferenca_g}g</td><td>${pill(d.status)}</td></tr>`;
+  });
+  $("#recTabela").innerHTML = html + "</table>";
+}
+
+/* ---------- ABA 2: Resumo do dia ---------- */
+async function carregarResumo(){
+  $("#resumoCards").innerHTML = '<div class="dash-msg">Carregando…</div>';
+  const hoje = dataLocalHoje();
+  const dados = (await dashCarregar(true)).filter(d => d.data === hoje);
+  const total = dados.length;
+  const cont = {OK:0, ABAIXO:0, ACIMA:0};
+  let desperdicio = 0; const porSabor = {}; const porHora = new Array(24).fill(0);
+  dados.forEach(d => {
+    cont[d.status] = (cont[d.status]||0) + 1;
+    if (+d.diferenca_g > 0) desperdicio += +d.diferenca_g;
+    porSabor[d.sabor] = (porSabor[d.sabor]||0) + 1;
+    const h = parseInt((d.hora||"0").slice(0,2)); if (h>=0 && h<24) porHora[h]++;
+  });
+  const pct = n => total ? Math.round(n/total*100) : 0;
+  let maisPesado = "—", maxS = 0;
+  for (const s in porSabor) if (porSabor[s] > maxS){ maxS = porSabor[s]; maisPesado = s; }
+  let pico = "—", maxH = 0;
+  for (let h=0;h<24;h++) if (porHora[h] > maxH){ maxH = porHora[h]; pico = String(h).padStart(2,"0")+"h"; }
+  const card = (v,l) => `<div class="dash-card"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  $("#resumoCards").innerHTML =
+    card(total, "Pesagens hoje") +
+    card(pct(cont.OK)+"%", "Dentro da tolerância (OK)") +
+    card(pct(cont.ACIMA)+"%", "Acima do alvo (desperdício)") +
+    card(pct(cont.ABAIXO)+"%", "Abaixo do alvo") +
+    card(desperdicio+"g", "Desperdício acumulado") +
+    card(maisPesado, "Produto mais pesado") +
+    card(pico, "Horário de pico");
+  desenharGraficoHoras(porHora);
+}
+
+/* Grafico de barras (canvas puro): pesagens por hora do dia. */
+function desenharGraficoHoras(porHora){
+  const cv = $("#chartHoras"); if (!cv) return;
+  const W = cv.clientWidth || 600, H = 200;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d"); ctx.clearRect(0,0,W,H);
+  const max = Math.max(1, ...porHora);
+  const padL = 6, padB = 22, bw = (W - padL*2) / 24;
+  ctx.font = "10px sans-serif"; ctx.textAlign = "center";
+  for (let h=0; h<24; h++){
+    const v = porHora[h];
+    const bh = (v/max) * (H - padB - 16);
+    const x = padL + h*bw, y = H - padB - bh;
+    ctx.fillStyle = "#1565d8"; ctx.fillRect(x+1.5, y, bw-3, bh);
+    if (h % 3 === 0){ ctx.fillStyle = "#9aa6b2"; ctx.fillText(h+"h", x+bw/2, H-6); }
+    if (v > 0){ ctx.fillStyle = "#fff"; ctx.fillText(v, x+bw/2, y-3); }
+  }
+}
+
+/* ---------- ABA 3: Historico (filtros + paginacao) ---------- */
+async function carregarHistorico(){
+  const sel = $("#filSabor");
+  if (sel.options.length <= 1){   // popula sabores uma vez
+    const sabores = new Set();
+    Object.values(FICHA).forEach(cat => {
+      (cat.grupos || [{sabores: cat.sabores}]).forEach(g => (g.sabores||[]).forEach(s => sabores.add(s)));
+    });
+    [...sabores].sort((a,b)=>a.localeCompare(b,"pt-BR")).forEach(s => {
+      const o = document.createElement("option"); o.value=s; o.textContent=s; sel.appendChild(o);
+    });
+  }
+  histPagina = 1;
+  await aplicarFiltrosHist();
+}
+
+async function aplicarFiltrosHist(){
+  $("#histTabela").innerHTML = '<div class="dash-msg">Carregando…</div>';
+  const periodo = $("#filPeriodo").value;
+  const fam = $("#filFamilia").value, sab = $("#filSabor").value, st = $("#filStatus").value;
+  let de, ate;
+  if (periodo === "hoje"){ de = ate = dataLocalHoje(); }
+  else if (periodo === "7" || periodo === "30"){
+    const d = new Date(); d.setDate(d.getDate() - (periodo==="7"?6:29));
+    de = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    ate = dataLocalHoje();
+  } else { de = $("#filDe").value || "0000-00-00"; ate = $("#filAte").value || "9999-99-99"; }
+  const todos = await dashCarregar(true);
+  histFiltrado = todos.filter(d =>
+    (!fam || d.familia === fam) && (!sab || d.sabor === sab) &&
+    (!st || d.status === st) && (d.data >= de && d.data <= ate)
+  );
+  renderHistPagina();
+}
+
+function renderHistPagina(){
+  const POR_PAG = 20;
+  const total = histFiltrado.length;
+  const paginas = Math.max(1, Math.ceil(total / POR_PAG));
+  if (histPagina > paginas) histPagina = paginas;
+  const pagina = histFiltrado.slice((histPagina-1)*POR_PAG, histPagina*POR_PAG);
+  if (!total){ $("#histTabela").innerHTML = '<div class="dash-msg">Nenhuma pesagem no filtro.</div>'; $("#histRodape").textContent=""; $("#histPag").innerHTML=""; return; }
+  let html = '<table class="dash"><tr><th>Data</th><th>Hora</th><th>Produto</th><th>Ingrediente</th><th>Alvo</th><th>Real</th><th>Dif</th><th>Status</th></tr>';
+  pagina.forEach(d => {
+    html += `<tr><td>${(d.data||"").split("-").reverse().join("/")}</td><td>${d.hora||""}</td><td>${d.sabor||""}</td><td>${d.ingrediente||""}</td>`+
+      `<td class="num">${d.alvo_g}g</td><td class="num">${d.real_g}g</td><td class="num">${(+d.diferenca_g>=0?"+":"")+d.diferenca_g}g</td><td>${pill(d.status)}</td></tr>`;
+  });
+  $("#histTabela").innerHTML = html + "</table>";
+  const mediaDesvio = total ? Math.round(histFiltrado.reduce((s,d)=>s+Math.abs(+d.diferenca_g),0)/total) : 0;
+  $("#histRodape").textContent = `Total: ${total} pesagens · Desvio médio: ${mediaDesvio}g`;
+  $("#histPag").innerHTML =
+    `<button id="histPrev" ${histPagina<=1?"disabled":""}>◀ Anterior</button>`+
+    `<span>Página ${histPagina} de ${paginas}</span>`+
+    `<button id="histNext" ${histPagina>=paginas?"disabled":""}>Próxima ▶</button>`;
+  const prev = $("#histPrev"), next = $("#histNext");
+  if (prev) prev.onclick = () => { histPagina--; renderHistPagina(); };
+  if (next) next.onclick = () => { histPagina++; renderHistPagina(); };
+}
+
+/* Exporta uma lista de registros como CSV (download no tablet). */
+function exportarCSV(linhas, nome){
+  if (!linhas || !linhas.length){ mostrarToast("Nada para exportar"); return; }
+  const cols = ["data","hora","loja_id","loja_nome","familia","sabor","tamanho","ingrediente","alvo_g","real_g","diferenca_g","status"];
+  const esc = v => { v = (v==null?"":String(v)); return (v.includes(",")||v.includes('"')||v.includes("\n")) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  const txt = cols.join(",") + "\n" + linhas.map(r => cols.map(c => esc(r[c])).join(",")).join("\n");
+  const blob = new Blob(["﻿" + txt], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = nome + "_" + dataLocalHoje() + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+
+// --- Liga os controles do dashboard ---
+$("#btnDashboard").addEventListener("click", abrirDashboard);
+$("#dashFechar").addEventListener("click", fecharDashboard);
+$("#dashboard").addEventListener("click", e => { if (e.target.id === "dashboard") fecharDashboard(); });
+document.querySelectorAll(".dash-tab").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".dash-tab").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll(".dash-tabc").forEach(c => c.classList.remove("active"));
+  $("#tab-" + b.dataset.tab).classList.add("active");
+  if (b.dataset.tab === "recentes") carregarRecentes();
+  else if (b.dataset.tab === "resumo") carregarResumo();
+  else if (b.dataset.tab === "historico") carregarHistorico();
+  else if (b.dataset.tab === "treinos") carregarTabTreinos();
+}));
+$("#btnAtualizarRec").addEventListener("click", carregarRecentes);
+$("#btnExpRecentes").addEventListener("click", () => exportarCSV(dadosLoja.slice(0, 50), "ultimas_pesagens"));
+$("#filPeriodo").addEventListener("change", () => {
+  const c = $("#filPeriodo").value === "custom";
+  $("#filDe").style.display = c ? "" : "none";
+  $("#filAte").style.display = c ? "" : "none";
+});
+$("#btnFiltrarHist").addEventListener("click", () => { histPagina = 1; aplicarFiltrosHist(); });
+$("#btnExpHist").addEventListener("click", () => exportarCSV(histFiltrado, "historico_pesagens"));
+
+// Libera o audio no primeiro toque em qualquer lugar (necessario no Android).
+document.addEventListener("pointerdown", desbloquearAudio, { once:true });
+
+// Inicializacao
+montarCategorias();
+atualizarBadge();
+// A cada tick: tara automatica + checa fim da pesagem (volta ao inicio) + redesenha.
+setInterval(() => { atualizarTara(); checarFimPesagem(); renderPesagem(); }, 40);
+
+/* =====================================================================
+   ESTÁGIO 3 — PAINEL DE CONFIGURAÇÃO COM PIN
+   ===================================================================== */
+
+/* Lista de unidades da rede — edite para incluir todas as lojas. */
+const LOJAS = [
+  {id:"SP-001", nome:"Vila Clementino — São Paulo/SP"},
+  {id:"SP-002", nome:"Jabaquara — São Paulo/SP"},
+  {id:"SP-003", nome:"Campo Belo — São Paulo/SP"},
+  {id:"SP-004", nome:"Gopouva — Guarulhos/SP"},
+  {id:"SP-005", nome:"Mandaqui — São Paulo/SP"},
+  {id:"SP-006", nome:"Pinheiros — São Paulo/SP"},
+  {id:"SP-007", nome:"Aclimação — São Paulo/SP"},
+  {id:"SP-008", nome:"GRU — Guarulhos/SP"},
+  {id:"ES-001", nome:"Praia do Canto — Vitória/ES"},
+  {id:"ES-002", nome:"Jardim Camburi — Vitória/ES"},
+  {id:"ES-003", nome:"Serra — Serra/ES"},
+];
+
+/* --- Estado PIN --- */
+let pinAtual = "";           // dígitos digitados
+let pinSessao = "";          // PIN autenticado nesta sessão (reenviado ao salvar)
+let pinPadrao = false;       // servidor avisou que o PIN é "1234" / "0000"
+let pinTentativas = 0;
+let pinBloqueioAte = 0;
+let pinLockInterval = null;
+
+/* --- Estado mini-PIN (troca de PIN dentro do painel) --- */
+let cfgNovoPin = "";
+let cfgConfPin = "";
+let cfgPinAlvo = null;       // "novo" | "conf" | null
+let cfgInativoTimer = null;
+
+/* ===================== MODAL DE PIN ===================== */
+
+function abrirModalPin(){
+  desbloquearAudio();
+  pinAtual = ""; atualizarPinDots();
+  $("#pinMsg").textContent = "";
+  if (Date.now() < pinBloqueioAte){
+    $("#pinLockoutTxt").style.display = "block";
+    iniciarContagemBloqueio();
+  } else {
+    pinBloqueioAte = 0;
+    $("#pinLockoutTxt").style.display = "none";
+    document.querySelectorAll(".pin-tecla").forEach(b => b.removeAttribute("disabled"));
+  }
+  $("#modalPin").classList.add("show");
+}
+
+function fecharModalPin(){
+  if (pinLockInterval){ clearInterval(pinLockInterval); pinLockInterval = null; }
+  pinAtual = ""; atualizarPinDots();
+  $("#modalPin").classList.remove("show");
+}
+
+function atualizarPinDots(){
+  for (let i=0; i<4; i++){
+    const d = $("#pd"+i);
+    if (d) d.classList.toggle("filled", i < pinAtual.length);
+  }
+}
+
+function pinDigitar(d){
+  if (Date.now() < pinBloqueioAte) return;
+  if (pinAtual.length >= 4) return;
+  pinAtual += d; atualizarPinDots();
+  if (pinAtual.length === 4) wsEnviar({tipo:"verificar_pin", pin:pinAtual});
+}
+
+function pinApagar(){
+  if (pinAtual.length > 0){ pinAtual = pinAtual.slice(0,-1); atualizarPinDots(); }
+}
+
+function iniciarContagemBloqueio(){
+  document.querySelectorAll(".pin-tecla").forEach(b => b.setAttribute("disabled","1"));
+  if (pinLockInterval) clearInterval(pinLockInterval);
+  pinLockInterval = setInterval(() => {
+    const restam = Math.max(0, Math.ceil((pinBloqueioAte - Date.now()) / 1000));
+    if (restam <= 0){
+      clearInterval(pinLockInterval); pinLockInterval = null;
+      pinTentativas = 0; pinBloqueioAte = 0;
+      $("#pinLockoutTxt").style.display = "none";
+      document.querySelectorAll(".pin-tecla").forEach(b => b.removeAttribute("disabled"));
+      pinAtual = ""; atualizarPinDots();
+      $("#pinMsg").textContent = "Pode tentar novamente.";
+      return;
+    }
+    const m = Math.floor(restam/60), s = String(restam%60).padStart(2,"0");
+    $("#pinLockoutTxt").textContent = "⏳ Bloqueado por " + m + ":" + s + " após 3 tentativas incorretas";
+  }, 500);
+}
+
+/* ===================== PAINEL DE CONFIG ===================== */
+
+function abrirModalConfig(){
+  /* Preenche dropdown de lojas (apenas na primeira vez) */
+  const sel = $("#cfgLojaSelect");
+  if (sel.options.length === 0){
+    LOJAS.forEach(l => {
+      const o = document.createElement("option");
+      o.value = l.id; o.textContent = l.nome; sel.appendChild(o);
+    });
+  }
+  /* Valores atuais do servidor */
+  if (cfg.loja_id) sel.value = cfg.loja_id;
+  $("#cfgSupabaseUrl").value = cfg.supabase_url || "";
+  $("#cfgSupabaseKey").value = cfg.supabase_key || "";
+  $("#cfgIpServidor").value = cfg.ip_servidor || location.hostname || "";
+  /* Nome no cabeçalho */
+  const lojaSel = LOJAS.find(l => l.id === cfg.loja_id);
+  $("#cfgLojaNome").textContent = (lojaSel ? lojaSel.nome : cfg.loja_nome) || "—";
+  /* Aviso PIN padrão */
+  $("#cfgPinAvisoPadrao").style.display = pinPadrao ? "block" : "none";
+  /* Limpa aviso Supabase e mini-PIN */
+  const av = $("#cfgSupaAviso"); av.style.display="none"; av.className=""; av.textContent="";
+  cfgPinLimpar("novo");
+  /* Botão salvar */
+  const btnSal = $("#cfgSalvarBtn"); btnSal.disabled=false; btnSal.textContent="💾 Salvar configurações";
+  $("#modalConfig").classList.add("show");
+  cfgResetInativo();
+}
+
+function fecharModalConfig(){
+  if (cfgInativoTimer){ clearTimeout(cfgInativoTimer); cfgInativoTimer=null; }
+  cfgPinFocar(null);
+  $("#modalConfig").classList.remove("show");
+}
+
+function cfgResetInativo(){
+  if (cfgInativoTimer) clearTimeout(cfgInativoTimer);
+  cfgInativoTimer = setTimeout(() => {
+    fecharModalConfig();
+    mostrarToast("⚙️ Painel fechado por inatividade (2 min)");
+  }, 2 * 60 * 1000);
+}
+
+/* Testa a conexão Supabase com os valores digitados */
+async function cfgTestarSupabase(){
+  cfgResetInativo();
+  const url = $("#cfgSupabaseUrl").value.trim();
+  const key = $("#cfgSupabaseKey").value.trim();
+  const aviso = $("#cfgSupaAviso");
+  aviso.style.display="block"; aviso.className="cfg-aviso"; aviso.textContent="🔄 Testando conexão…";
+  try {
+    const r = await fetch(url.replace(/\/$/,"") + "/rest/v1/pesagens?select=id&limit=1",
+      {headers:{apikey:key, Authorization:"Bearer "+key}});
+    if (r.ok || r.status===200 || r.status===206){
+      aviso.className="cfg-aviso-ok"; aviso.textContent="✅ Supabase respondeu — conexão OK!";
+    } else {
+      aviso.className="cfg-aviso-err"; aviso.textContent="❌ Erro "+r.status+" — verifique URL e chave.";
+    }
+  } catch(e){
+    aviso.className="cfg-aviso-err"; aviso.textContent="❌ Sem resposta — verifique URL e conexão.";
+  }
+}
+
+/* Reconecta o WebSocket usando o IP digitado */
+function cfgReconectarWS(){
+  cfgResetInativo();
+  const ip = $("#cfgIpServidor").value.trim();
+  if (!ip){ mostrarToast("Informe o IP do servidor"); return; }
+  wsUrlAtual = "ws://" + ip + ":" + WS_PORT;
+  if (ws){ try{ ws.close(); }catch(_){} }
+  agendarReconexao();
+  mostrarToast("↻ Reconectando em " + ip + "…");
+}
+
+/* ===================== MINI-PIN (troca de PIN) ===================== */
+
+function cfgPinFocar(alvo){
+  cfgPinAlvo = alvo;
+  const teclado = $("#cfgPinMiniTeclado");
+  alvo ? teclado.classList.add("show") : teclado.classList.remove("show");
+  if (cfgInativoTimer) cfgResetInativo();
+}
+
+function cfgPinDigitar(d){
+  cfgResetInativo();
+  if (!cfgPinAlvo) return;
+  if (cfgPinAlvo === "novo"){
+    if (cfgNovoPin.length >= 4) return;
+    cfgNovoPin += d; atualizarMiniPinDots("n", cfgNovoPin);
+    if (cfgNovoPin.length === 4){
+      cfgConfPin = ""; atualizarMiniPinDots("c", cfgConfPin);
+      $("#cfgConfPinCampo").style.display = "block";
+      cfgPinFocar("conf");
+    }
+  } else {
+    if (cfgConfPin.length >= 4) return;
+    cfgConfPin += d; atualizarMiniPinDots("c", cfgConfPin);
+    if (cfgConfPin.length === 4) cfgPinFocar(null);
+  }
+}
+
+function cfgPinApagar(){
+  cfgResetInativo();
+  if (!cfgPinAlvo) return;
+  if (cfgPinAlvo==="novo"){ cfgNovoPin=cfgNovoPin.slice(0,-1); atualizarMiniPinDots("n",cfgNovoPin); }
+  else { cfgConfPin=cfgConfPin.slice(0,-1); atualizarMiniPinDots("c",cfgConfPin); }
+}
+
+function cfgPinLimpar(qual){
+  if (qual==="novo"){
+    cfgNovoPin=""; atualizarMiniPinDots("n","");
+    cfgConfPin=""; atualizarMiniPinDots("c","");
+    $("#cfgConfPinCampo").style.display="none";
+  } else {
+    cfgConfPin=""; atualizarMiniPinDots("c","");
+  }
+  const e=$("#cfgPinErroConf"); if(e){e.style.display="none";e.textContent="";e.className="";}
+  cfgPinFocar(null);
+}
+
+function atualizarMiniPinDots(pref, valor){
+  for (let i=0; i<4; i++){
+    const el = document.getElementById((pref==="n"?"npd":"cpd")+i);
+    if (el) el.classList.toggle("filled", i < valor.length);
+  }
+}
+
+/* ===================== SALVAR CONFIG ===================== */
+
+function cfgSalvar(){
+  cfgResetInativo();
+  const lojaId = $("#cfgLojaSelect").value;
+  const lojaNome = (LOJAS.find(l=>l.id===lojaId)||{}).nome || "";
+
+  /* Valida mini-PIN se preenchido */
+  let novoPin = undefined;
+  if (cfgNovoPin.length > 0){
+    const erroEl = $("#cfgPinErroConf");
+    if (cfgNovoPin.length !== 4 || cfgConfPin.length !== 4){
+      erroEl.className="cfg-aviso-err"; erroEl.style.display="block";
+      erroEl.textContent="Digite 4 dígitos no novo PIN e confirme."; return;
+    }
+    if (cfgNovoPin !== cfgConfPin){
+      erroEl.className="cfg-aviso-err"; erroEl.style.display="block";
+      erroEl.textContent="❌ Os PINs não coincidem. Tente novamente."; return;
+    }
+    erroEl.style.display="none"; erroEl.textContent="";
+    novoPin = cfgNovoPin;
+  }
+
+  const data = {
+    loja_id: lojaId,
+    loja_nome: lojaNome,
+    supabase_url: $("#cfgSupabaseUrl").value.trim(),
+    supabase_key: $("#cfgSupabaseKey").value.trim(),
+    ip_servidor: $("#cfgIpServidor").value.trim(),
+  };
+  if (novoPin !== undefined) data.novo_pin = novoPin;
+
+  wsEnviar({tipo:"config", data, pin:pinSessao});
+  const btn = $("#cfgSalvarBtn"); btn.disabled=true; btn.textContent="Salvando…";
+}
+
+/* ===================== RESPOSTAS DO SERVIDOR ===================== */
+
+function tratarMensagemPainel(d){
+  if (d.tipo === "pin_resultado"){
+    if (d.ok){
+      pinSessao = pinAtual;
+      pinPadrao = !!d.pin_padrao;
+      if (d.config) cfg = Object.assign({}, cfg, d.config);  // atualiza cfg com dados do servidor
+      pinAtual = ""; atualizarPinDots();
+      fecharModalPin();
+      abrirModalConfig();
+    } else {
+      pinTentativas++;
+      pinAtual = ""; atualizarPinDots();
+      if (pinTentativas >= 3){
+        pinBloqueioAte = Date.now() + 5 * 60 * 1000;
+        iniciarContagemBloqueio();
+        $("#pinMsg").textContent = "";
+      } else {
+        $("#pinMsg").textContent = "❌ PIN incorreto — tentativa " + pinTentativas + "/3";
+      }
+    }
+  }
+
+  if (d.tipo === "config_resultado"){
+    const btn = $("#cfgSalvarBtn");
+    if (btn){ btn.disabled=false; btn.textContent="💾 Salvar configurações"; }
+    if (d.ok){
+      if (cfgNovoPin.length===4 && cfgNovoPin===cfgConfPin){ pinSessao=cfgNovoPin; pinPadrao=false; }
+      mostrarToast("✅ Configurações salvas com sucesso!");
+      fecharModalConfig();
+    } else {
+      mostrarToast("❌ " + (d.erro || d.mensagem || "Erro ao salvar"));
+    }
+  }
+}
+
+/* ===================== EVENTOS ===================== */
+
+$("#btnConfig").addEventListener("click", abrirModalPin);
+$("#pinCancelarBtn").addEventListener("click", fecharModalPin);
+$("#modalPin").addEventListener("click", e => { if(e.target.id==="modalPin") fecharModalPin(); });
+$("#cfgFecharBtn").addEventListener("click", fecharModalConfig);
+$("#cfgCancelarBtn").addEventListener("click", fecharModalConfig);
+$("#modalConfig").addEventListener("click", e => { if(e.target.id==="modalConfig") fecharModalConfig(); });
+$("#cfgTestarSupa").addEventListener("click", cfgTestarSupabase);
+$("#cfgReconectar").addEventListener("click", cfgReconectarWS);
+$("#cfgSalvarBtn").addEventListener("click", cfgSalvar);
+$("#cfgBody").addEventListener("pointerdown", cfgResetInativo);
+
+/* =====================================================================
+   MÓDULO DE TREINAMENTO — Estágio 4
+   Completamente isolado da operação real. Usa a mesma balança e auto-tara.
+   Nunca grava em pesagens — registros vão na tabela treinos.
+   ===================================================================== */
+
+function gerarUUID(){
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
+
+/* --- Estado da sessão --- */
+let treinoAtivo     = false;
+let treinoOperador  = "";
+let treinoSessaoId  = "";
+let treinoTentNum   = 0;
+let treinoScore     = {acertos:0, quase:0, erros:0};
+let treinoHistorico = [];
+let treinoSeq       = 0;
+let treinoMelhorSeq = 0;
+/* Captura automática (1,5 s) */
+let tCand = 0, tDesde = 0, tRegistrado = false, t_ultEst = null;
+
+/* ==================== ABERTURA / ENCERRAMENTO ==================== */
+
+function abrirTelaIdentificacao(){
+  $("#treinoNomeInput").value = "";
+  mostrarTela("s-treino-id");
+  setTimeout(()=>{ try{ $("#treinoNomeInput").focus(); }catch(_){} }, 150);
+}
+
+function iniciarSessaoTreino(){
+  const nome = $("#treinoNomeInput").value.trim();
+  if (nome.length < 3){ mostrarToast("Nome deve ter pelo menos 3 caracteres"); return; }
+  treinoAtivo=true; treinoOperador=nome; treinoSessaoId=gerarUUID();
+  treinoTentNum=0; treinoScore={acertos:0,quase:0,erros:0};
+  treinoHistorico=[]; treinoSeq=0; treinoMelhorSeq=0;
+  document.body.classList.add("treino-ativo");
+  $("#treinoNomeBadge").textContent = nome;
+  $("#treinoBadge").classList.add("show");
+  state.categoria=null; state.grupoIdx=null; state.sabor=null; state.tamanho=null;
+  state.etapas=[]; state.etapaIdx=0;
+  mostrarTela("s-categoria"); atualizarCrumb();
+}
+
+function encerrarTreino(){ mostrarResumoFinal(); }
+
+function confirmarEncerrarTreino(){
+  treinoAtivo=false;
+  document.body.classList.remove("treino-ativo","excedido");
+  $("#treinoBadge").classList.remove("show");
+  $("#treino-hud").classList.remove("show");
+  document.getElementById("t-resultado").classList.remove("show");
+  state.categoria=null; state.grupoIdx=null; state.sabor=null; state.tamanho=null;
+  state.etapas=[]; state.etapaIdx=0;
+  mostrarTela("s-categoria"); atualizarCrumb();
+  mostrarToast("✓ Treino encerrado — bem-vindo de volta à operação real");
+}
+
+/* ==================== TELA DE PESAGEM DE TREINO ==================== */
+
+function iniciarTreinoPesagem(){
+  /* Só inicializa estado — a tela usada é #s-pesagem (comportamento idêntico à produção). */
+  resetCapturaTreino();
+  document.getElementById("t-resultado").classList.remove("show");
+  atualizarTentNumUI(); atualizarPlacarUI();
+  $("#treino-hud").classList.add("show");
+}
+
+function atualizarTentNumUI(){ $("#t-tentNum").textContent = treinoTentNum+1; }
+
+function atualizarPlacarUI(){
+  const total = treinoScore.acertos+treinoScore.quase+treinoScore.erros;
+  const prec  = total ? Math.round(treinoScore.acertos/total*100) : null;
+  $("#t-placarAcertos").textContent = treinoScore.acertos;
+  $("#t-placarQuase").textContent   = treinoScore.quase;
+  $("#t-placarErros").textContent   = treinoScore.erros;
+  const el = $("#t-placarPrec");
+  if (prec===null){ el.textContent="—"; el.style.color="var(--muted)"; }
+  else { el.textContent=prec+"%"; el.style.color=prec>=80?"var(--ok)":prec>=60?"var(--near)":"var(--over)"; }
+}
+
+function resetCapturaTreino(){ tCand=0; tDesde=0; tRegistrado=false; }
+
+/* ==================== REGISTRO DA TENTATIVA ==================== */
+
+function registrarTentativa(real){
+  tRegistrado=true; document.body.classList.remove("excedido");
+  treinoTentNum++;
+  const alvo=state.alvo, dif=real-alvo, absDif=Math.abs(dif);
+  const resultado=absDif<=5?"ACERTO":absDif<=15?"QUASE":"LONGE";
+
+  if (resultado==="ACERTO"){ treinoScore.acertos++; treinoSeq++; }
+  else { resultado==="QUASE"?treinoScore.quase++:treinoScore.erros++; treinoSeq=0; }
+  if (treinoSeq>treinoMelhorSeq) treinoMelhorSeq=treinoSeq;
+
+  const t=FICHA[state.categoria].tamanhos.find(t=>t.id===state.tamanho);
+  const tamNome=t?(t.nome+" "+t.massa):state.tamanho;
+  treinoHistorico.push({num:treinoTentNum,familia:state.categoria,
+    sabor:state.sabor,tamanho:tamNome,alvo,real,dif,resultado});
+
+  wsEnviar({tipo:"treino", data:{
+    operador:treinoOperador, sessao_id:treinoSessaoId,
+    tentativa_numero:treinoTentNum, familia:state.categoria,
+    sabor:state.sabor, tamanho:tamNome,
+    alvo_g:alvo, real_g:real, diferenca_g:dif, resultado,
+  }});
+
+  atualizarPlacarUI(); atualizarTentNumUI();
+  mostrarOverlayResultado(alvo,real,dif,resultado);
+}
+
+/* ==================== OVERLAY DE RESULTADO ==================== */
+
+function iconeResult(r){ return r==="ACERTO"?"✅":r==="QUASE"?"⚠️":"❌"; }
+
+function feedbackMsg(resultado,dif){
+  if (resultado==="ACERTO") return "Perfeito! Mão calibrada! 🎯";
+  if (resultado==="QUASE")  return "Quase lá! Tente ajustar um pouco.";
+  return dif>0?"Muito pesado! Retire um pouco.":"Muito leve! Adicione um pouco mais.";
+}
+
+function mostrarOverlayResultado(alvo,real,dif,resultado){
+  const cor=resultado==="ACERTO"?"var(--ok)":resultado==="QUASE"?"var(--near)":"var(--over)";
+  $("#t-res-icon").textContent=iconeResult(resultado);
+  $("#t-res-alvo").textContent=alvo+" g";
+  $("#t-res-real").textContent=real+" g";
+  $("#t-res-dif").textContent=(dif>=0?"+":"")+dif+"g";
+  $("#t-res-dif").style.color=cor;
+  $("#t-res-msg").textContent=feedbackMsg(resultado,dif);
+  $("#t-res-msg").style.color=cor;
+  document.getElementById("t-resultado").classList.add("show");
+}
+
+function tentarNovamente(){
+  document.getElementById("t-resultado").classList.remove("show");
+  document.body.classList.remove("excedido");
+  resetCaptura(); resetCapturaTreino();
+  ultimoEstado = null;
+  // Fica em #s-pesagem — tara já foi resetada em voltarAoInicio; aguarda nova base
+}
+
+function trocarProdutoTreino(){
+  document.getElementById("t-resultado").classList.remove("show");
+  document.body.classList.remove("excedido");
+  state.categoria=null; state.grupoIdx=null; state.sabor=null; state.tamanho=null;
+  state.etapas=[]; state.etapaIdx=0;
+  mostrarTela("s-categoria"); atualizarCrumb();
+}
+
+/* ==================== MODAL DESEMPENHO ==================== */
+
+function abrirDesempenho(){
+  if (!treinoHistorico.length){ mostrarToast("Nenhuma tentativa ainda"); return; }
+  let html='<table class="dash"><tr><th>#</th><th>Produto</th><th>Alvo</th><th>Pesado</th><th>Dif</th><th></th></tr>';
+  treinoHistorico.forEach(h=>{
+    const cor=h.resultado==="ACERTO"?"var(--ok)":h.resultado==="QUASE"?"var(--near)":"var(--over)";
+    html+=`<tr><td>${h.num}</td>
+      <td style="white-space:normal;font-size:.9em">${h.sabor}<br>
+        <span style="color:var(--muted);font-size:.85em">${h.tamanho}</span></td>
+      <td class="num">${h.alvo}g</td><td class="num">${h.real}g</td>
+      <td class="num" style="color:${cor}">${(h.dif>=0?"+":"")+h.dif}g</td>
+      <td>${iconeResult(h.resultado)}</td></tr>`;
+  });
+  html+="</table>";
+  const total=treinoScore.acertos+treinoScore.quase+treinoScore.erros;
+  $("#desemp-header").textContent="🎓 "+treinoOperador+" — "+total+" tentativas";
+  $("#desemp-tabela").innerHTML='<div class="dash-tabela">'+html+"</div>";
+  $("#modalDesemp").classList.add("show");
+}
+function fecharDesempenho(){ $("#modalDesemp").classList.remove("show"); }
+
+/* ==================== RESUMO FINAL ==================== */
+
+function mostrarResumoFinal(){
+  const total=treinoScore.acertos+treinoScore.quase+treinoScore.erros;
+  const prec=total?Math.round(treinoScore.acertos/total*100):0;
+  const corP=prec>=80?"var(--ok)":prec>=60?"var(--near)":"var(--over)";
+  const errPorSabor={};
+  treinoHistorico.forEach(h=>{ if(h.resultado!=="ACERTO") errPorSabor[h.sabor]=(errPorSabor[h.sabor]||0)+1; });
+  let maisDif="—", maxErr=0;
+  for (const s in errPorSabor) if(errPorSabor[s]>maxErr){ maxErr=errPorSabor[s]; maisDif=s; }
+  const card=(v,l)=>`<div class="t-resumo-card"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  $("#resumo-nome").textContent=treinoOperador;
+  $("#resumo-cards").innerHTML=
+    card(total,"Total de tentativas")+
+    card(treinoScore.acertos,"✅ Acertos")+
+    card(`<span style="color:${corP}">${prec}%</span>`,"Precisão geral")+
+    card(treinoMelhorSeq,"🔥 Melhor sequência")+
+    card(maisDif==="—"?maisDif:`<span style="font-size:.62em">${maisDif}</span>`,"📍 Maior dificuldade");
+  $("#modalResumo").classList.add("show");
+}
+function fecharResumoEEncerrar(){ $("#modalResumo").classList.remove("show"); confirmarEncerrarTreino(); }
+
+/* ==================== ABA 4: TREINOS NO DASHBOARD ==================== */
+
+let dadosTreinos=[], dadosTreinosEm=0;
+
+async function dashCarregarTreinos(forcar){
+  if (!forcar && dadosTreinos.length && (Date.now()-dadosTreinosEm<12000)) return dadosTreinos;
+  const loja=encodeURIComponent(cfg.loja_id||"");
+  let dados=null;
+  if (supabaseOk()){
+    try {
+      const r=await fetch(cfg.supabase_url.replace(/\/$/,"")+
+        "/rest/v1/treinos?loja_id=eq."+loja+"&select=*&order=criado_em.desc&limit=3000",
+        {headers:{apikey:cfg.supabase_key,Authorization:"Bearer "+cfg.supabase_key}});
+      if (r.ok) dados=await r.json();
+    } catch(_){}
+  }
+  if (dados===null){
+    try {
+      const r=await fetch("/logs/treinos_backup.csv?_="+Date.now());
+      if (r.ok){
+        const linhas=(await r.text()).trim().split(/\r?\n/);
+        if (linhas.length>=2){
+          const cab=linhas[0].split(",");
+          dados=linhas.slice(1).map(l=>{
+            const v=parseCSVLinha(l),o={}; cab.forEach((c,i)=>o[c]=v[i]);
+            o.alvo_g=+o.alvo_g; o.real_g=+o.real_g; o.diferenca_g=+o.diferenca_g; return o;
+          }).filter(o=>o.loja_id===cfg.loja_id);
+        }
+      }
+    } catch(_){}
+    if (dados===null) dados=[];
+  }
+  dados.sort((a,b)=>String(b.criado_em||(b.data+" "+b.hora)).localeCompare(String(a.criado_em||(a.data+" "+a.hora))));
+  dadosTreinos=dados; dadosTreinosEm=Date.now();
+  return dadosTreinos;
+}
+
+async function carregarTabTreinos(){
+  const body=$("#tab-treinos-body");
+  body.innerHTML='<div class="dash-msg">Carregando…</div>';
+  const dados=await dashCarregarTreinos(true);
+
+  /* Popula filtro de operadores */
+  const filOp=$("#filOperador");
+  const ops=new Set(dados.map(d=>d.operador).filter(Boolean));
+  const opAtual=filOp.value;
+  while (filOp.options.length>1) filOp.remove(1);
+  [...ops].sort().forEach(op=>{ const o=document.createElement("option"); o.value=op; o.textContent=op; filOp.appendChild(o); });
+  if (opAtual && ops.has(opAtual)) filOp.value=opAtual;
+
+  /* Filtro de período */
+  const periodo=$("#filPeriodoTreino").value, hoje=dataLocalHoje();
+  let de,ate;
+  if (periodo==="hoje"){ de=ate=hoje; }
+  else if (periodo==="7"||periodo==="30"){
+    const d=new Date(); d.setDate(d.getDate()-(periodo==="7"?6:29));
+    de=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); ate=hoje;
+  } else { de="0000-00-00"; ate="9999-99-99"; }
+
+  const opFil=filOp.value;
+  const fil=dados.filter(d=>d.data>=de&&d.data<=ate&&(!opFil||d.operador===opFil));
+
+  if (!fil.length){ body.innerHTML='<div class="dash-msg">Nenhum treino no período selecionado.</div>'; return; }
+
+  const sessoes=new Set(fil.map(d=>d.sessao_id));
+  const acertos=fil.filter(d=>d.resultado==="ACERTO").length;
+  const precMedia=fil.length?Math.round(acertos/fil.length*100):0;
+  const corPM=precMedia>=80?"var(--ok)":precMedia>=60?"var(--near)":"var(--over)";
+  const porOp={};
+  fil.forEach(d=>{
+    if (!porOp[d.operador]) porOp[d.operador]={ac:0,tot:0,sess:new Set()};
+    porOp[d.operador].tot++; if(d.resultado==="ACERTO") porOp[d.operador].ac++;
+    porOp[d.operador].sess.add(d.sessao_id);
+  });
+  let melhorOp="—",melhorPrec=0;
+  for (const op in porOp){ const p=Math.round(porOp[op].ac/porOp[op].tot*100); if(p>melhorPrec){melhorPrec=p;melhorOp=op;} }
+  const rank=Object.entries(porOp)
+    .map(([op,d])=>({op,tot:d.tot,ac:d.ac,sess:d.sess.size,prec:Math.round(d.ac/d.tot*100)}))
+    .sort((a,b)=>b.prec-a.prec);
+  let rankHtml='<table class="dash"><tr><th>Operador</th><th>Sessões</th><th>Tentativas</th><th>Acertos</th><th>Precisão</th></tr>';
+  rank.forEach(r=>{
+    const cor=r.prec>=80?"var(--ok)":r.prec>=60?"var(--near)":"var(--over)";
+    rankHtml+=`<tr><td>${r.op}</td><td class="num">${r.sess}</td><td class="num">${r.tot}</td>`+
+      `<td class="num">${r.ac}</td><td class="num" style="color:${cor};font-weight:800">${r.prec}%</td></tr>`;
+  });
+  rankHtml+="</table>";
+  const card=(v,l)=>`<div class="dash-card"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  body.innerHTML=
+    `<div class="dash-cards">${card(sessoes.size,"Sessões")
+      }${card(fil.length,"Tentativas")
+      }${card('<span style="color:'+corPM+'">'+precMedia+'%</span>',"Precisão média")
+      }${card(melhorOp,'🏆 Melhor operador')}</div>
+    <h4 style="font-size:13px;color:var(--muted);font-weight:800;margin:8px 0 6px">RANKING DE OPERADORES</h4>
+    <div class="dash-tabela">${rankHtml}</div>`;
+}
+
+/* ==================== EVENTOS ==================== */
+
+$("#btnTreino").addEventListener("click", abrirTelaIdentificacao);
+$("#btnIniciarTreino").addEventListener("click", iniciarSessaoTreino);
+$("#btnCancelarId").addEventListener("click", ()=>{ mostrarTela("s-categoria"); atualizarCrumb(); });
+document.getElementById("treinoNomeInput").addEventListener("keydown", e=>{ if(e.key==="Enter") iniciarSessaoTreino(); });
+// btnTreinoTrocar foi removido (#s-treino-pesagem não existe mais — usa breadcrumb ou btnTrocarTreino2)
+document.getElementById("btnTreinoEncerrar").addEventListener("click", encerrarTreino);   // no #treino-hud
+document.getElementById("btnTentarNov").addEventListener("click", tentarNovamente);
+document.getElementById("btnTrocarTreino2").addEventListener("click", trocarProdutoTreino);
+document.getElementById("btnVerDesemp").addEventListener("click", abrirDesempenho);       // no #treino-hud
+document.getElementById("btnFecharDesemp").addEventListener("click", fecharDesempenho);
+document.getElementById("modalDesemp").addEventListener("click", e=>{ if(e.target.id==="modalDesemp") fecharDesempenho(); });
+document.getElementById("btnEncerrarOk").addEventListener("click", fecharResumoEEncerrar);
+document.getElementById("btnFiltrarTreinos").addEventListener("click", carregarTabTreinos);
+
+/* Badge 🎓 clicável em qualquer tela — abre o resumo e encerra a sessão. */
+document.getElementById("treinoBadge").addEventListener("click", () => {
+  if (treinoAtivo) encerrarTreino();
+});
+</script>
+</body>
+</html>
