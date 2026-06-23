@@ -31,17 +31,36 @@ set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 :: ============================================================
 echo [1/6] Verificando Python...
 python --version >nul 2>&1
+if %errorlevel% equ 0 goto :python_ok
+
+:: Python nao encontrado — baixar e instalar automaticamente
+echo        Python nao encontrado. Baixando automaticamente...
+echo        (pode levar 2-3 minutos dependendo da internet)
+echo.
+set "PY_URL=https://www.python.org/ftp/python/3.12.4/python-3.12.4-amd64.exe"
+set "PY_INST=%TEMP%\python-setup.exe"
+
+powershell -NoProfile -Command "Invoke-WebRequest -Uri '%PY_URL%' -OutFile '%PY_INST%' -UseBasicParsing" 2>nul
 if %errorlevel% neq 0 (
     echo.
-    echo  ERRO: Python nao encontrado.
-    echo.
-    echo  1. Acesse https://python.org/downloads
-    echo  2. Baixe a versao mais recente
-    echo  3. Na instalacao marque "Add Python to PATH"
-    echo  4. Execute este instalador novamente
+    echo  ERRO: nao foi possivel baixar o Python automaticamente.
+    echo  Verifique a conexao com a internet e tente novamente,
+    echo  ou instale manualmente em https://python.org/downloads
+    echo  marcando "Add Python to PATH" na instalacao.
     echo.
     pause & exit /b 1
 )
+
+echo        Instalando Python silenciosamente...
+"%PY_INST%" /quiet InstallAllUsers=0 PrependPath=1 Include_test=0 Include_doc=0
+del "%PY_INST%" >nul 2>&1
+
+echo        Python instalado! Reiniciando o instalador...
+timeout /t 2 /nobreak >nul
+start "" "%~f0"
+exit /b
+
+:python_ok
 for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYVER=%%v
 echo        Python %PYVER% OK
 
