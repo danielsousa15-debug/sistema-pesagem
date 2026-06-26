@@ -2,8 +2,8 @@
   "supabase_url": "https://xgvvqouygmofoirazoln.supabase.co",
   "supabase_key": "sb_publishable_prBUgFctQxjnMoHGZbwjMA_Bzeuie3L",
   "porta_com": "AUTO",
-  "ip_servidor": "192.168.68.103",
-  "admin_pin": "1501",
-  "loja_id": "SP-001",
-  "loja_nome": "Vila Clementino — São Paulo/SP"
+  "ip_servidor": "",
+  "admin_pin": "1234",
+  "loja_id": "",
+  "loja_nome": ""
 }
