@@ -32,7 +32,7 @@ echo [1/6] Verificando Python...
 python --version >nul 2>&1
 if %errorlevel% equ 0 goto :python_ok
 
-:: Python nao encontrado — baixar e instalar automaticamente
+:: Python nao encontrado - baixar e instalar automaticamente
 echo        Python nao encontrado. Baixando automaticamente...
 echo        (pode levar 2-3 minutos dependendo da internet)
 echo.
@@ -54,10 +54,21 @@ echo        Instalando Python silenciosamente...
 "%PY_INST%" /quiet InstallAllUsers=0 PrependPath=1 Include_test=0 Include_doc=0
 del "%PY_INST%" >nul 2>&1
 
-echo        Python instalado! Reiniciando o instalador...
-timeout /t 2 /nobreak >nul
-start "" "%~f0"
-exit /b
+:: Adiciona o Python recem-instalado ao PATH desta sessao.
+:: (processos ja abertos nao enxergam o PATH novo do registro, por isso
+::  forcamos o caminho padrao da instalacao por usuario aqui)
+set "PATH=%LOCALAPPDATA%\Programs\Python\Python312\;%LOCALAPPDATA%\Programs\Python\Python312\Scripts\;%PATH%"
+
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo.
+    echo  Python foi instalado. Feche esta janela e execute o
+    echo  instalar.bat novamente para concluir a instalacao.
+    echo.
+    pause ^& exit /b 1
+)
+echo        Python instalado OK
+goto :python_ok
 
 :python_ok
 for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYVER=%%v

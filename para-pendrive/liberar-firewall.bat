@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul
 REM ------------------------------------------------------------------
 REM Libera as portas 8080 e 8765 no Firewall do Windows.
 REM Pede permissao de administrador sozinho (janela do UAC "Sim/Nao").
