@@ -1,0 +1,24 @@
+GERADOR DE LICENCA - DEX BALANCE  (uso do administrador)
+========================================================
+
+Esta pasta NAO vai para o pendrive das lojas. E so para voce (admin).
+
+COMO LIBERAR UMA LOJA:
+
+1. Na loja, o operador roda o "Mostrar ID da Maquina.bat"
+   (que fica na pasta do Dex Balance, junto do servidor.py).
+   Ele te envia o ID que aparecer (ex: AA:BB:CC:DD:EE:FF).
+
+   Obs: se a loja ja instalou e abriu o sistema sem licenca, o
+   proprio navegador mostra uma tela de bloqueio com o ID.
+
+2. Voce roda o "Gerar Licenca.bat" e cola o ID.
+   Ele cria o arquivo "licenca.key" nesta pasta.
+
+3. Voce envia o "licenca.key" para a loja (WhatsApp/e-mail).
+
+4. A loja salva o "licenca.key" na MESMA pasta do servidor.py
+   e reinicia o sistema (parar.bat e iniciar.bat, ou reiniciar
+   o computador). Pronto: liberado.
+
+A chave e vitalicia e so funciona naquela maquina especifica.

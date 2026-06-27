@@ -1,0 +1,12 @@
+# Licencas geradas (uma por maquina) — nunca versionar nem distribuir
+licenca.key
+**/licenca.key
+
+# Logs e backups gerados em runtime
+*.log
+logs/
+*.tmp
+
+# Python
+__pycache__/
+*.pyc

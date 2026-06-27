@@ -23,15 +23,19 @@ funcionar sozinho assim que a balanca for reconectada.
 import asyncio
 import csv
 import datetime
+import hashlib
+import hmac
 import json
 import logging
 import os
 import re
+import socket
 import sys
 import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import serial
@@ -80,11 +84,85 @@ logging.basicConfig(
 log = logging.getLogger("pesagem")
 
 # ---------------------------------------------------------------------------
+# LICENCA — trava o sistema a uma maquina autorizada (modelo igual ao DEX Label)
+# O administrador gera o arquivo licenca.key a partir do ID da maquina. Sem uma
+# chave valida na pasta, o HTTP serve apenas a pagina de bloqueio com o ID.
+# ---------------------------------------------------------------------------
+_L1 = "DXB25"
+_L2 = "AL-SEC"
+_L3 = "FRQ-BAL"
+_LIC_SECRET = _L1 + _L2 + _L3
+LICENSE_PATH = os.path.join(BASE_DIR, "licenca.key")
+
+
+def get_machine_id():
+    """ID estavel desta maquina: MAC da placa de rede (hostname como reserva)."""
+    mac = uuid.getnode()
+    # Bit 41 ligado = uuid.getnode nao encontrou um MAC real e gerou um aleatorio.
+    if (mac >> 40) & 0x01:
+        return socket.gethostname().strip().upper()
+    return ":".join("%02X" % ((mac >> shift) & 0xFF) for shift in range(40, -1, -8))
+
+
+def license_key_for(machine_id):
+    """Chave esperada para um ID (mesmo algoritmo do gerador do administrador)."""
+    return hmac.new(
+        _LIC_SECRET.encode("utf-8"),
+        machine_id.strip().upper().encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()[:32].upper()
+
+
+def check_license():
+    """True se existe um licenca.key valido para esta maquina."""
+    try:
+        with open(LICENSE_PATH, "r", encoding="utf-8") as f:
+            stored = f.read().strip().upper()
+    except OSError:
+        return False
+    return bool(stored) and stored == license_key_for(get_machine_id())
+
+
+LICENSE_BLOCKED_PAGE = """<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dex Balance - Sem licenca</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background:#0f0f0f; color:#fff;
+         display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .box { text-align:center; padding:48px 32px; max-width:440px; width:100%; }
+  .lock { font-size:64px; margin-bottom:24px; }
+  h1 { font-size:22px; font-weight:900; margin-bottom:10px; }
+  p { font-size:14px; color:#888; margin-bottom:28px; line-height:1.7; }
+  .label { font-size:11px; color:#555; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
+  .id-box { background:#1a1a1a; border:1px solid #333; border-radius:8px;
+            padding:14px 20px; font-size:16px; color:#a3e635; font-family:monospace;
+            word-break:break-all; user-select:all; cursor:text; }
+  .hint { margin-top:12px; font-size:12px; color:#444; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="lock">&#128274;</div>
+    <h1>Licenca necessaria</h1>
+    <p>Este computador nao esta autorizado a usar o Dex Balance.<br>
+       Envie o ID abaixo para o administrador e receba o arquivo <strong>licenca.key</strong>.</p>
+    <div class="label">ID desta maquina</div>
+    <div class="id-box">%%MACHINE_ID%%</div>
+    <div class="hint">Clique no codigo para selecionar e copie (Ctrl+C)</div>
+  </div>
+</body>
+</html>"""
+
+# ---------------------------------------------------------------------------
 # AUTO-ATUALIZACAO — baixa versoes novas do GitHub a cada reinicio
 # ---------------------------------------------------------------------------
 _UPDATE_BASE = (
     "https://raw.githubusercontent.com/danielsousa15-debug/"
-    "sistema-pesagem/main/para-pendrive/"
+    "sistema-pesagem/master/para-pendrive/"
 )
 _UPDATE_FILES = ["sistema.html", "servidor.py"]
 
@@ -482,6 +560,16 @@ class CorsRequestHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
+        # Trava de licenca: sem chave valida, serve apenas a pagina de bloqueio.
+        if not check_license():
+            page = LICENSE_BLOCKED_PAGE.replace(
+                "%%MACHINE_ID%%", get_machine_id()).encode("utf-8")
+            self.send_response(403)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(page)))
+            self.end_headers()
+            self.wfile.write(page)
+            return
         if self.path in ("/", ""):
             self.path = "/sistema.html"
         return super().do_GET()
@@ -516,6 +604,14 @@ def mensagem_config():
 
 async def ws_handler(websocket, *args):
     """Conexao do tablet: envia a config inicial e processa as mensagens recebidas."""
+    # Trava de licenca: sem chave valida, recusa a conexao (nao envia peso).
+    if not check_license():
+        try:
+            await websocket.send(json.dumps({"tipo": "sem_licenca"}))
+            await websocket.close(code=4003, reason="sem licenca")
+        except Exception:
+            pass
+        return
     CLIENTS.add(websocket)
     peer = getattr(websocket, "remote_address", ("?",))[0]
     log.info("Tablet conectado (%s) — %d cliente(s)", peer, len(CLIENTS))
@@ -658,6 +754,9 @@ def main():
     log.info("=" * 60)
     log.info("Dex Balance — servidor iniciando")
     log.info("Loja: %s — %s", CONFIG.get("loja_id"), CONFIG.get("loja_nome"))
+    log.info("Licenca: %s (ID da maquina: %s)",
+             "VALIDA" if check_license() else "AUSENTE/INVALIDA -- sistema bloqueado",
+             get_machine_id())
     log.info("Supabase: %s", "configurado" if (CONFIG.get("supabase_url") and "SEU-PROJETO" not in CONFIG.get("supabase_url", "")) else "NAO configurado (usando backup CSV)")
     log.info("=" * 60)
 
