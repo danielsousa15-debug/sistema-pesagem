@@ -128,32 +128,98 @@ LICENSE_BLOCKED_PAGE = """<!doctype html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dex Balance - Sem licenca</title>
+<title>Dex Balance - Licenca</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background:#0f0f0f; color:#fff;
-         display:flex; align-items:center; justify-content:center; min-height:100vh; }
-  .box { text-align:center; padding:48px 32px; max-width:440px; width:100%; }
-  .lock { font-size:64px; margin-bottom:24px; }
-  h1 { font-size:22px; font-weight:900; margin-bottom:10px; }
-  p { font-size:14px; color:#888; margin-bottom:28px; line-height:1.7; }
-  .label { font-size:11px; color:#555; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
-  .id-box { background:#1a1a1a; border:1px solid #333; border-radius:8px;
-            padding:14px 20px; font-size:16px; color:#a3e635; font-family:monospace;
-            word-break:break-all; user-select:all; cursor:text; }
-  .hint { margin-top:12px; font-size:12px; color:#444; }
+         display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+  .box { text-align:center; max-width:470px; width:100%; }
+  .icon { font-size:58px; margin-bottom:18px; }
+  h1 { font-size:22px; font-weight:900; margin-bottom:12px; }
+  p  { font-size:14px; color:#9a9a9a; margin-bottom:20px; line-height:1.7; }
+  .label { font-size:11px; color:#666; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
+  .code-box { background:#1a1a1a; border:1px solid #333; border-radius:10px;
+              padding:16px 20px; font-size:18px; color:#a3e635; font-family:monospace;
+              word-break:break-all; user-select:all; cursor:text; }
+  .path-box { background:#1a1a1a; border:1px solid #333; border-radius:10px;
+              padding:14px 18px; font-size:13px; color:#7dd3fc; font-family:monospace;
+              word-break:break-all; user-select:all; cursor:text; }
+  button { border:none; border-radius:10px; padding:14px 20px; font-size:15px; font-weight:700;
+           cursor:pointer; width:100%; margin-top:10px; }
+  .primary { background:#a3e635; color:#0f0f0f; }
+  .ghost   { background:#262626; color:#fff; }
+  .hint { margin-top:12px; font-size:12px; color:#555; }
+  .err  { font-size:13px; margin-top:12px; min-height:18px; }
+  .step { display:none; }
+  .step.active { display:block; }
+  ol { text-align:left; color:#9a9a9a; font-size:13px; line-height:1.9; margin:6px 0 16px 20px; }
+  ol strong { color:#fff; }
 </style>
 </head>
 <body>
   <div class="box">
-    <div class="lock">&#128274;</div>
-    <h1>Licenca necessaria</h1>
-    <p>Este computador nao esta autorizado a usar o Dex Balance.<br>
-       Envie o ID abaixo para o administrador e receba o arquivo <strong>licenca.key</strong>.</p>
-    <div class="label">ID desta maquina</div>
-    <div class="id-box">%%MACHINE_ID%%</div>
-    <div class="hint">Clique no codigo para selecionar e copie (Ctrl+C)</div>
+
+    <div id="step1" class="step active">
+      <div class="icon">&#128274;</div>
+      <h1>Licenca necessaria</h1>
+      <p>Este computador ainda nao esta liberado.<br>
+         Envie o codigo abaixo para o administrador.</p>
+      <div class="label">Codigo desta maquina</div>
+      <div class="code-box" id="codeBox">%%MACHINE_ID%%</div>
+      <button class="ghost" onclick="copiar('codeBox')">Copiar codigo</button>
+      <button class="primary" onclick="irPasso2()">Ja enviei o codigo &rarr;</button>
+      <div class="hint">O administrador vai te devolver um arquivo chamado licenca.key</div>
+    </div>
+
+    <div id="step2" class="step">
+      <div class="icon">&#128193;</div>
+      <h1>Salve o arquivo da licenca</h1>
+      <ol>
+        <li>Recebeu o arquivo <strong>licenca.key</strong> do administrador?</li>
+        <li>Salve ele <strong>exatamente</strong> nesta pasta:</li>
+      </ol>
+      <div class="label">Pasta do sistema</div>
+      <div class="path-box" id="pathBox">%%FOLDER%%</div>
+      <button class="ghost" onclick="copiar('pathBox')">Copiar caminho da pasta</button>
+      <ol>
+        <li>Confira que o nome ficou <strong>licenca.key</strong> (e nao licenca.key.txt).</li>
+        <li>Depois clique no botao verde para liberar.</li>
+      </ol>
+      <button class="primary" onclick="verificar()">Ja salvei o licenca.key &mdash; Liberar sistema</button>
+      <div class="err" id="err"></div>
+      <button class="ghost" onclick="irPasso1()">&larr; Voltar</button>
+    </div>
+
   </div>
+
+<script>
+function mostra(id){
+  document.getElementById('step1').classList.remove('active');
+  document.getElementById('step2').classList.remove('active');
+  document.getElementById(id).classList.add('active');
+}
+function irPasso2(){ mostra('step2'); }
+function irPasso1(){ document.getElementById('err').textContent=''; mostra('step1'); }
+function copiar(id){
+  var t = document.getElementById(id).textContent;
+  if(navigator.clipboard && window.isSecureContext){ navigator.clipboard.writeText(t); }
+  else { var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta);
+         ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); }
+}
+function verificar(){
+  var err=document.getElementById('err');
+  err.style.color='#9a9a9a'; err.textContent='Verificando...';
+  fetch('/__license_status',{cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.licensed){ err.style.color='#a3e635'; err.textContent='Liberado! Abrindo o sistema...';
+                      setTimeout(function(){ window.location.href='/'; }, 800); }
+      else { err.style.color='#f87171';
+             err.textContent='Ainda nao encontrei um licenca.key valido nesta pasta. Confira o nome e o local, e tente de novo.'; }
+    })
+    .catch(function(){ err.style.color='#f87171'; err.textContent='Erro ao verificar. Tente novamente.'; });
+}
+</script>
 </body>
 </html>"""
 
@@ -560,10 +626,25 @@ class CorsRequestHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
-        # Trava de licenca: sem chave valida, serve apenas a pagina de bloqueio.
+        # Endpoint de status da licenca: responde JSON sempre (mesmo bloqueado).
+        # Usado pelo botao "Liberar sistema" da pagina de licenca.
+        if self.path.split("?")[0] == "/__license_status":
+            body = json.dumps({
+                "licensed": check_license(),
+                "machine_id": get_machine_id(),
+                "folder": BASE_DIR,
+            }).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        # Trava de licenca: sem chave valida, serve a pagina-assistente de licenca.
         if not check_license():
-            page = LICENSE_BLOCKED_PAGE.replace(
-                "%%MACHINE_ID%%", get_machine_id()).encode("utf-8")
+            page = (LICENSE_BLOCKED_PAGE
+                    .replace("%%MACHINE_ID%%", get_machine_id())
+                    .replace("%%FOLDER%%", BASE_DIR)).encode("utf-8")
             self.send_response(403)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(page)))
