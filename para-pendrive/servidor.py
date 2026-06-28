@@ -134,6 +134,9 @@ LICENSE_BLOCKED_PAGE = """<!doctype html>
   body { font-family: Arial, sans-serif; background:#0f0f0f; color:#fff;
          display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
   .box { text-align:center; max-width:470px; width:100%; }
+  .brand { font-size:15px; font-weight:900; letter-spacing:4px; color:#fff;
+           margin-bottom:26px; }
+  .brand-dex { color:#a3e635; }
   .icon { font-size:58px; margin-bottom:18px; }
   h1 { font-size:22px; font-weight:900; margin-bottom:12px; }
   p  { font-size:14px; color:#9a9a9a; margin-bottom:20px; line-height:1.7; }
@@ -158,6 +161,8 @@ LICENSE_BLOCKED_PAGE = """<!doctype html>
 </head>
 <body>
   <div class="box">
+
+    <div class="brand"><span class="brand-dex">DEX</span> BALANCE</div>
 
     <div id="step1" class="step active">
       <div class="icon">&#128274;</div>
