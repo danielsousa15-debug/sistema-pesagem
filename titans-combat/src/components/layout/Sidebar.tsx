@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, Users, Dumbbell, UserCheck,
   CreditCard, DollarSign, Target, QrCode,
-  LogOut, Menu, X, ChevronRight
+  LogOut, Menu, X, ChevronRight, ClipboardList
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -17,6 +17,7 @@ const navItems = [
   { href: '/professores',  label: 'Professores',  icon: UserCheck },
   { href: '/planos',       label: 'Planos',       icon: CreditCard },
   { href: '/financeiro',   label: 'Financeiro',   icon: DollarSign },
+  { href: '/presencas',    label: 'Presenças',    icon: ClipboardList },
   { href: '/leads',        label: 'Leads',        icon: Target },
   { href: '/qrcode',       label: 'QR Code',      icon: QrCode },
 ]
