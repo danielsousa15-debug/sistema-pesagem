@@ -1,93 +1,63 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CheckCircle2, Loader2, LogIn } from 'lucide-react'
+import { CheckCircle2, Loader2, Search } from 'lucide-react'
 
-type Step = 'login' | 'confirm' | 'success'
+type Step = 'search' | 'confirm' | 'success'
 
 export default function CheckinPage() {
   const supabase = createClient()
-  const [step, setStep] = useState<Step>('login')
-  const [loading, setLoading] = useState(true)
+  const [step, setStep] = useState<Step>('search')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [studentName, setStudentName] = useState('')
+  const [studentId, setStudentId] = useState('')
+  const [tenantId, setTenantId] = useState('')
+  const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(false)
 
-  useEffect(() => {
-    checkSession()
-  }, [])
-
-  async function checkSession() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: student } = await supabase
-          .from('students')
-          .select('name, status')
-          .eq('user_id', user.id)
-          .maybeSingle()
-        if (student) {
-          setStudentName(student.name)
-          setStep('confirm')
-        } else {
-          await supabase.auth.signOut()
-          setError('Usuário não encontrado como aluno. Use as credenciais do seu cadastro de aluno.')
-          setStep('login')
-        }
-      }
-    } catch {
-      // ignore
-    }
-    setLoading(false)
-  }
-
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError('Email ou senha inválidos.')
-      setLoading(false)
-      return
-    }
-    await checkSession()
-    setLoading(false)
-  }
-
-  async function handleCheckin() {
-    setChecking(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setStep('login'); setChecking(false); return }
 
     const { data: student } = await supabase
       .from('students')
-      .select('id, tenant_id, status')
-      .eq('user_id', user.id)
-      .single()
+      .select('id, name, status, tenant_id')
+      .eq('email', email.trim().toLowerCase())
+      .maybeSingle()
 
     if (!student) {
-      setError('Aluno não encontrado.')
-      setChecking(false)
+      setError('Email não encontrado. Verifique com a recepção.')
+      setLoading(false)
       return
     }
 
     if (student.status === 'cancelado' || student.status === 'inadimplente') {
       setError(`Seu acesso está ${student.status}. Fale com a recepção.`)
-      setChecking(false)
+      setLoading(false)
       return
     }
+
+    setStudentName(student.name)
+    setStudentId(student.id)
+    setTenantId(student.tenant_id)
+    setStep('confirm')
+    setLoading(false)
+  }
+
+  async function handleCheckin() {
+    setChecking(true)
+    setError('')
 
     // Check if already checked in today
     const today = new Date().toISOString().split('T')[0]
     const { data: existing } = await supabase
       .from('checkins')
       .select('id')
-      .eq('student_id', student.id)
-      .gte('checked_at', today)
+      .eq('student_id', studentId)
+      .gte('checked_at', today + 'T00:00:00')
       .limit(1)
       .maybeSingle()
 
@@ -98,8 +68,8 @@ export default function CheckinPage() {
     }
 
     const { error } = await supabase.from('checkins').insert({
-      student_id: student.id,
-      tenant_id: student.tenant_id,
+      student_id: studentId,
+      tenant_id: tenantId,
       device_info: navigator.userAgent.split(' ').slice(-3).join(' '),
       browser_info: navigator.userAgent,
     })
@@ -114,14 +84,6 @@ export default function CheckinPage() {
     setChecking(false)
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
-        <Loader2 size={32} className="animate-spin text-[#dc2626]" />
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] px-4">
       {/* Logo */}
@@ -132,13 +94,13 @@ export default function CheckinPage() {
       </div>
 
       <div className="w-full max-w-sm">
-        {/* LOGIN */}
-        {step === 'login' && (
+        {/* SEARCH */}
+        {step === 'search' && (
           <div className="card p-6 fade-in">
-            <h2 className="text-center font-bold text-lg mb-5">Entrar para registrar presença</h2>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <h2 className="text-center font-bold text-lg mb-5">Digite seu email</h2>
+            <form onSubmit={handleSearch} className="space-y-4">
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5 uppercase tracking-wide">Email</label>
+                <label className="block text-xs text-zinc-400 mb-1.5 uppercase tracking-wide">Email cadastrado</label>
                 <input
                   type="email"
                   value={email}
@@ -147,18 +109,7 @@ export default function CheckinPage() {
                   required
                   className="input-field"
                   autoComplete="email"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5 uppercase tracking-wide">Senha</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="input-field"
-                  autoComplete="current-password"
+                  autoFocus
                 />
               </div>
               {error && (
@@ -167,8 +118,8 @@ export default function CheckinPage() {
                 </p>
               )}
               <button type="submit" disabled={loading} className="btn-red w-full justify-center py-3.5 text-base mt-2">
-                <LogIn size={18} />
-                {loading ? 'Entrando...' : 'Entrar'}
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                {loading ? 'Buscando...' : 'Buscar'}
               </button>
             </form>
           </div>
@@ -179,7 +130,7 @@ export default function CheckinPage() {
           <div className="card p-6 text-center fade-in">
             <div className="w-16 h-16 rounded-full bg-[#dc2626]/15 flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl font-black text-[#dc2626]">
-                {studentName.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase()}
+                {studentName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
               </span>
             </div>
             <p className="text-zinc-400 text-sm mb-1">Olá,</p>
@@ -204,7 +155,7 @@ export default function CheckinPage() {
             </button>
 
             <button
-              onClick={() => { supabase.auth.signOut(); setStep('login'); setStudentName(''); setError('') }}
+              onClick={() => { setStep('search'); setEmail(''); setError('') }}
               className="text-xs text-zinc-600 hover:text-zinc-400 mt-4 transition-colors"
             >
               Não sou {studentName.split(' ')[0]}
@@ -224,7 +175,7 @@ export default function CheckinPage() {
               {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </p>
             <button
-              onClick={() => { setStep('confirm'); setError('') }}
+              onClick={() => { setStep('search'); setEmail(''); setError('') }}
               className="btn-ghost w-full justify-center mt-6 text-sm"
             >
               Novo check-in
