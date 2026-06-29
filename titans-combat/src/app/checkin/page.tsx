@@ -21,19 +21,25 @@ export default function CheckinPage() {
   }, [])
 
   async function checkSession() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data: student } = await supabase
-        .from('students')
-        .select('name, status')
-        .eq('user_id', user.id)
-        .single()
-      if (student) {
-        setStudentName(student.name)
-        setStep('confirm')
-      } else {
-        setStep('login')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: student } = await supabase
+          .from('students')
+          .select('name, status')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (student) {
+          setStudentName(student.name)
+          setStep('confirm')
+        } else {
+          await supabase.auth.signOut()
+          setError('Usuário não encontrado como aluno. Use as credenciais do seu cadastro de aluno.')
+          setStep('login')
+        }
       }
+    } catch {
+      // ignore
     }
     setLoading(false)
   }
