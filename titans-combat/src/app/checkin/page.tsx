@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Shield, CheckCircle2, Loader2, LogIn } from 'lucide-react'
+import { CheckCircle2, Loader2, LogIn } from 'lucide-react'
 
 type Step = 'login' | 'confirm' | 'success'
 
@@ -120,9 +120,7 @@ export default function CheckinPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] px-4">
       {/* Logo */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-[#dc2626] mb-4 pulse-red mx-auto">
-          <Shield className="w-10 h-10 text-white" />
-        </div>
+        <img src="/logo.png" alt="Titãs Combat" width={96} height={96} className="rounded-full mx-auto mb-4 ring-2 ring-[#dc2626]/30" />
         <h1 className="text-3xl font-black tracking-tight">TITÃS COMBAT</h1>
         <p className="text-zinc-500 mt-1">Check-in de presença</p>
       </div>
