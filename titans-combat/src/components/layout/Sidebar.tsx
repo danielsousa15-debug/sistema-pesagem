@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -58,7 +57,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-4 py-4 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <Image src="/logo.png" alt="Titãs Combat" width={44} height={44} className="rounded-full shrink-0" />
+          <img src="/logo.png" alt="Titãs Combat" width={44} height={44} className="rounded-full shrink-0" />
           <div>
             <p className="font-bold text-sm leading-none">TITÃS COMBAT</p>
             <p className="text-xs text-zinc-500 mt-0.5">Gestão</p>
