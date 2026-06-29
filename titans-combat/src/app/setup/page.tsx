@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Shield, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
+import Image from 'next/image'
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -74,9 +75,7 @@ export default function SetupPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4">
       <div className="w-full max-w-sm fade-in">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#dc2626] mb-4 pulse-red">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
+          <Image src="/logo.png" alt="Titãs Combat" width={96} height={96} className="rounded-full mx-auto mb-4 ring-2 ring-[#dc2626]/30" />
           <h1 className="text-2xl font-bold tracking-tight">TITÃS COMBAT</h1>
           <p className="text-sm text-zinc-400 mt-1">Criar conta de administrador</p>
         </div>

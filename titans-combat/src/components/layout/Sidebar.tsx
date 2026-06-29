@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, Users, Dumbbell, UserCheck,
   CreditCard, DollarSign, Target, QrCode,
-  LogOut, Menu, X, Shield, ChevronRight
+  LogOut, Menu, X, ChevronRight
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -55,11 +56,9 @@ export function Sidebar() {
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-4 py-5 border-b border-white/5">
+      <div className="px-4 py-4 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#dc2626] flex items-center justify-center shrink-0">
-            <Shield size={18} className="text-white" />
-          </div>
+          <Image src="/logo.png" alt="Titãs Combat" width={44} height={44} className="rounded-full shrink-0" />
           <div>
             <p className="font-bold text-sm leading-none">TITÃS COMBAT</p>
             <p className="text-xs text-zinc-500 mt-0.5">Gestão</p>
