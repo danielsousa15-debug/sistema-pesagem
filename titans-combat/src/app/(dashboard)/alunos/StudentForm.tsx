@@ -77,6 +77,7 @@ export function StudentForm({ tenantId, modalities, teachers, plans, student }: 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) { toast.error('Nome é obrigatório'); return }
+    if (!form.email.trim()) { toast.error('Email é obrigatório para o check-in'); return }
 
     setSaving(true)
     const payload = {
@@ -159,8 +160,8 @@ export function StudentForm({ tenantId, modalities, teachers, plans, student }: 
               <option value="outro">Outro</option>
             </select>
           </Field>
-          <Field label="Email">
-            <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className="input-field" placeholder="email@exemplo.com" />
+          <Field label="Email *">
+            <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className="input-field" placeholder="email@exemplo.com" required />
           </Field>
         </div>
       </Section>
