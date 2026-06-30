@@ -35,7 +35,7 @@ export default function QRCodePage() {
 
   return (
     <div className="space-y-6 fade-in max-w-lg">
-      <div className="pt-2 lg:pt-0">
+      <div className="pt-0">
         <h1 className="text-2xl font-bold tracking-tight">QR Code Check-in</h1>
         <p className="text-sm text-zinc-500 mt-0.5">Imprima e cole na entrada da academia</p>
       </div>

@@ -101,7 +101,7 @@ export function DiagnosticoClient({ diag }: Props) {
 
   return (
     <div className="space-y-5 fade-in max-w-2xl">
-      <div className="pt-2 lg:pt-0">
+      <div className="pt-0">
         <h1 className="text-2xl font-bold tracking-tight">Diagnóstico do Sistema</h1>
         <p className="text-sm text-zinc-500 mt-0.5">
           {issues === 0

@@ -101,13 +101,14 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed top-4 left-4 z-40 lg:hidden bg-[#141414] border border-[#1f1f1f] rounded-lg p-2"
-      >
-        <Menu size={20} />
-      </button>
+      {/* Mobile top bar */}
+      <div className="fixed top-0 left-0 right-0 z-40 lg:hidden h-14 bg-[#0d0d0d] border-b border-white/5 flex items-center px-4 gap-3">
+        <button onClick={() => setOpen(true)} className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+          <Menu size={20} />
+        </button>
+        <img src="/logo.png" alt="Titãs Combat" width={32} height={32} className="rounded-full" />
+        <span className="font-bold text-sm tracking-wide">TITÃS COMBAT</span>
+      </div>
 
       {/* Mobile overlay */}
       {open && (

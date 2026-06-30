@@ -31,7 +31,7 @@ export function PresencasClient({ checkins, date }: Props) {
 
   return (
     <div className="space-y-6 fade-in">
-      <div className="pt-2 lg:pt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="pt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Presenças</h1>
           <p className="text-sm text-zinc-500 mt-0.5">Registro de check-ins</p>

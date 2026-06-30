@@ -125,7 +125,7 @@ export function StudentForm({ tenantId, modalities, teachers, plans, student }: 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 fade-in max-w-3xl">
       {/* Header */}
-      <div className="flex items-center gap-3 pt-2 lg:pt-0">
+      <div className="flex items-center gap-3 pt-0">
         <Link href="/alunos" className="btn-ghost px-2.5 py-2.5">
           <ArrowLeft size={16} />
         </Link>

@@ -203,7 +203,7 @@ export function FinanceiroClient({ payments, students, tenantId, mesRef, initial
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 lg:pt-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Financeiro</h1>
           <div className="flex items-center gap-2 mt-1">

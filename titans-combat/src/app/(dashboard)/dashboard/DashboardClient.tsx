@@ -69,7 +69,7 @@ export function DashboardClient({ stats, recentCheckins }: Props) {
   return (
     <div className="space-y-8 fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between pt-2 lg:pt-0">
+      <div className="flex items-center justify-between pt-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-zinc-500 mt-0.5">

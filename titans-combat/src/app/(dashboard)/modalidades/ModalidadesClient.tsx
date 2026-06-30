@@ -124,7 +124,7 @@ export function ModalidadesClient({ modalities, tenantId }: Props) {
         />
       )}
 
-      <div className="flex items-center justify-between pt-2 lg:pt-0">
+      <div className="flex items-center justify-between pt-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Modalidades</h1>
           <p className="text-sm text-zinc-500">{modalities.length} modalidade{modalities.length !== 1 ? 's' : ''}</p>

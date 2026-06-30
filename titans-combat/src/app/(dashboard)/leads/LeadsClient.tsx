@@ -155,7 +155,7 @@ export function LeadsClient({ leads, modalities, tenantId }: Props) {
         />
       )}
 
-      <div className="flex items-center justify-between pt-2 lg:pt-0">
+      <div className="flex items-center justify-between pt-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-sm text-zinc-500">{leads.length} lead{leads.length !== 1 ? 's' : ''}</p>

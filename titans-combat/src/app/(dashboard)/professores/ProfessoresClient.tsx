@@ -113,7 +113,7 @@ export function ProfessoresClient({ teachers, tenantId }: Props) {
         <Modal onClose={() => { setShowModal(false); setEditing(null) }} onSave={handleSave} initial={editing ?? undefined} />
       )}
 
-      <div className="flex items-center justify-between pt-2 lg:pt-0">
+      <div className="flex items-center justify-between pt-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Professores</h1>
           <p className="text-sm text-zinc-500">{teachers.length} professor{teachers.length !== 1 ? 'es' : ''}</p>

@@ -62,7 +62,7 @@ export function StudentsClient({ students, modalities, initialStatus = '', initi
   return (
     <div className="space-y-5 fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 lg:pt-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Alunos</h1>
           <p className="text-sm text-zinc-500">{students.length} aluno{students.length !== 1 ? 's' : ''}</p>
