@@ -1,24 +1,28 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import QRCode from 'qrcode'
-import { Download, Printer } from 'lucide-react'
+import { Download, Printer, RefreshCw } from 'lucide-react'
+
+const PRODUCTION_URL = 'https://titas-combat-git-master-danielsousa15-5043s-projects.vercel.app'
 
 export default function QRCodePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [url, setUrl] = useState('')
+  const [checkinUrl, setCheckinUrl] = useState(PRODUCTION_URL + '/checkin')
 
-  useEffect(() => {
-    const checkinUrl = `${window.location.origin}/checkin`
-    setUrl(checkinUrl)
-    if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, checkinUrl, {
+  const generateQR = useCallback((url: string) => {
+    if (canvasRef.current && url) {
+      QRCode.toCanvas(canvasRef.current, url, {
         width: 280,
         margin: 2,
         color: { dark: '#ffffff', light: '#141414' },
       })
     }
   }, [])
+
+  useEffect(() => {
+    generateQR(checkinUrl)
+  }, [checkinUrl, generateQR])
 
   function handleDownload() {
     const canvas = canvasRef.current
@@ -29,10 +33,6 @@ export default function QRCodePage() {
     link.click()
   }
 
-  function handlePrint() {
-    window.print()
-  }
-
   return (
     <div className="space-y-6 fade-in max-w-lg">
       <div className="pt-0">
@@ -40,8 +40,32 @@ export default function QRCodePage() {
         <p className="text-sm text-zinc-500 mt-0.5">Imprima e cole na entrada da academia</p>
       </div>
 
+      {/* URL configurável */}
+      <div className="card p-4 print:hidden">
+        <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wide">URL do Check-in</label>
+        <div className="flex gap-2">
+          <input
+            type="url"
+            value={checkinUrl}
+            onChange={e => setCheckinUrl(e.target.value)}
+            className="input-field text-xs font-mono"
+          />
+          <button onClick={() => generateQR(checkinUrl)} className="btn-ghost px-3 shrink-0">
+            <RefreshCw size={14} />
+          </button>
+        </div>
+        <p className="text-xs text-zinc-600 mt-1.5">
+          Verifique se a URL está correta antes de imprimir.{' '}
+          <button
+            onClick={() => setCheckinUrl(PRODUCTION_URL + '/checkin')}
+            className="text-[#dc2626] hover:underline"
+          >
+            Restaurar padrão
+          </button>
+        </p>
+      </div>
+
       <div className="card p-8 text-center print:shadow-none print:border-none">
-        {/* Print area */}
         <div id="print-area">
           <p className="font-black text-2xl tracking-widest mb-1">TITÃS COMBAT</p>
           <p className="text-zinc-400 text-sm mb-6">Escaneie para registrar presença</p>
@@ -52,25 +76,25 @@ export default function QRCodePage() {
             </div>
           </div>
 
-          <p className="text-xs text-zinc-600 font-mono break-all">{url}</p>
+          <p className="text-xs text-zinc-600 font-mono break-all">{checkinUrl}</p>
         </div>
 
         <div className="flex gap-3 mt-6 justify-center print:hidden">
           <button onClick={handleDownload} className="btn-ghost">
             <Download size={16} /> Baixar PNG
           </button>
-          <button onClick={handlePrint} className="btn-red">
+          <button onClick={() => window.print()} className="btn-red">
             <Printer size={16} /> Imprimir
           </button>
         </div>
       </div>
 
-      <div className="card p-4">
+      <div className="card p-4 print:hidden">
         <h3 className="font-semibold text-sm mb-2">Como funciona</h3>
         <ol className="space-y-2 text-sm text-zinc-400">
           <li className="flex gap-2"><span className="text-[#dc2626] font-bold">1.</span>Imprima e cole o QR code na entrada</li>
-          <li className="flex gap-2"><span className="text-[#dc2626] font-bold">2.</span>Aluno chega e escaneia com o celular</li>
-          <li className="flex gap-2"><span className="text-[#dc2626] font-bold">3.</span>Se logado, aperta "Confirmar Presença"</li>
+          <li className="flex gap-2"><span className="text-[#dc2626] font-bold">2.</span>Aluno escaneia com o celular</li>
+          <li className="flex gap-2"><span className="text-[#dc2626] font-bold">3.</span>Digita o email e confirma presença</li>
           <li className="flex gap-2"><span className="text-[#dc2626] font-bold">4.</span>Presença registrada automaticamente</li>
         </ol>
       </div>
