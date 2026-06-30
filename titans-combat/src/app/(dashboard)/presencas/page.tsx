@@ -26,5 +26,6 @@ export default async function PresencasPage({
     .lte('checked_at', date + 'T23:59:59')
     .order('checked_at', { ascending: false })
 
-  return <PresencasClient checkins={checkins ?? []} date={date} />
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <PresencasClient checkins={(checkins ?? []) as any} date={date} />
 }
