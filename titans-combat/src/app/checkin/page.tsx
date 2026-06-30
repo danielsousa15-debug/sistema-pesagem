@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CheckCircle2, Loader2, Search } from 'lucide-react'
+import { CheckCircle2, Loader2, Search, UserPlus } from 'lucide-react'
+import Link from 'next/link'
 
 type Step = 'search' | 'confirm' | 'success'
 
@@ -122,6 +123,13 @@ export default function CheckinPage() {
                 {loading ? 'Buscando...' : 'Buscar'}
               </button>
             </form>
+            <div className="mt-5 pt-4 border-t border-white/5 text-center">
+              <p className="text-xs text-zinc-600 mb-2">Primeiro acesso?</p>
+              <Link href="/cadastro" className="flex items-center justify-center gap-2 text-sm text-[#dc2626] hover:text-red-400 transition-colors font-medium">
+                <UserPlus size={15} />
+                Fazer cadastro agora
+              </Link>
+            </div>
           </div>
         )}
 
